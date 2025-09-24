@@ -84,7 +84,7 @@ pexpect==4.8.0
 pickleshare==0.7.5
 pickydict==0.4.0
 Pillow==9.3.0
-pip==22.3.1
+pip==25.2
 platformdirs==2.5.2
 prompt-toolkit==3.0.36
 protobuf==3.19.6
