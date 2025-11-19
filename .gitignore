@@ -2,6 +2,7 @@
 algorithms/novor/set_build_envs.sh
 
 # Data
+proteomes/
 datasets/*
 !datasets/sample_data/
 
