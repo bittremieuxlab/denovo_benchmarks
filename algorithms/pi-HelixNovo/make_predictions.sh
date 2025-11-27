@@ -50,7 +50,7 @@ for input_file in "$@"/*.mgf; do
         --gpu=$device \
         --output=denovo_output.csv \
         --peak_path="/algo/input_data/$filename" \
-        --model=pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
+        --model=pi-HelixNovo/pi-helixnovo_massivekb.ckpt
 
     # Collect predictions (from algorithm output file denovo_output.csv)
     tail -n+2 denovo_output.csv >> /algo/denovo_outputs.csv
