@@ -1,5 +1,5 @@
-- container_version: "1.1.2"
-  date: "2025-06-02" # date of container update
+- container_version: "1.2.2"
+  date: "2025-12-18" # date of container update
   repo_commit: "5fa09b3" # commit with container update
-  notes: "Official release 1.1.2."
-  upstream_ref: "pip: instanovo==1.1.2" # optional reference
+  notes: "Official release 1.2.2."
+  upstream_ref: "pip: instanovo==1.2.2" # optional reference

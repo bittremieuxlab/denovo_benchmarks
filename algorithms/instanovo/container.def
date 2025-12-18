@@ -9,11 +9,11 @@ From: python:3.10
     
 %post
     # Install algorithm. Pin exact version for reproducibility
-    pip install --no-cache-dir "instanovo==1.1.2"
+    pip install --no-cache-dir "instanovo==1.2.2"
 
     # Download additional weights
     cd /algo
-    curl -LRO https://github.com/instadeepai/InstaNovo/releases/download/1.0.0/instanovo_extended.ckpt
+    curl -LRO https://github.com/instadeepai/InstaNovo/releases/download/1.2.0/instanovo-v1.2.0.ckpt
 
 %post
     # Make sure make_predictions.sh file is executable.
