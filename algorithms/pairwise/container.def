@@ -33,6 +33,9 @@ From: continuumio/miniconda3:latest
     cd depthcharge
     python -m pip install .
     
+    # replace create_lance.py with the fixed version for benchmarking
+    cp /algo/create_lance.py /algo/pairwise/src/data/create_lance.py
+
     cd /algo
     wget https://huggingface.co/alfred-n/PA-transformer/resolve/main/pairwise_mskb.ckpt
 
