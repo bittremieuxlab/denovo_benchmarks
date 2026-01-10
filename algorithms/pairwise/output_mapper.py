@@ -177,6 +177,11 @@ output_data = output_data.rename(
     axis=1,
 )
 
+# Drop rows with NaN predictions (before transforming sequences)
+output_data = output_data[
+    output_data[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
+].reset_index(drop=True)
+
 output_data['scans'] = output_data['spectrum_id'].map(lambda x: x.split('.')[-2])
 
 # Get number of tokens
@@ -187,11 +192,6 @@ output_data['aa_scores'] = output_data.apply(lambda x: ",".join([str(x['score'])
 
 # Tie comma-separated sequences together
 output_data['sequence'] = output_data['sequence'].map(lambda x: x.replace(',', ''))
-
-# Drop rows with NaN predictions
-output_data = output_data[
-    output_data[["spectrum_id", "sequence", "score", "aa_scores"]].notnull().all(axis=1)
-].reset_index(drop=True)
 
 # Transform data to the common output format
 output_mapper = OutputMapper(input_dir=args.input_dir)
