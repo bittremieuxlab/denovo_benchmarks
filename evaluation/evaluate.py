@@ -213,7 +213,7 @@ PLOT_N_POINTS = 200
 def _downsample_curve(coverage, metric):
     """Downsample coverage and metric arrays to PLOT_N_POINTS."""
     if len(coverage) == 0:
-        return [], []
+        return np.empty(0), np.empty(0)
     plot_idxs = np.linspace(0, len(coverage) - 1, min(PLOT_N_POINTS, len(coverage))).astype(np.int64)
     return coverage[plot_idxs], metric[plot_idxs]
 
@@ -295,12 +295,12 @@ for algo_name in os.listdir(args.output_root_dir):
             result_type="expand",
         ).values
         # Calculate metrics (aa precision, recall, peptide precision)
-        aa_matches_batch, n_aa1, n_aa2 = aa_match_batch(
+        aa_matches_batch, n_aa_pred, n_aa_true = aa_match_batch(
             output_data["sequence"][labeled_idx],
             output_data["sequence_true"][labeled_idx],
             AA_MASSES,
         )
-        aa_precision, aa_recall, pep_precision = aa_match_metrics(aa_matches_batch, n_aa1, n_aa2)
+        aa_precision, aa_recall, pep_precision = aa_match_metrics(aa_matches_batch, n_aa_true, n_aa_pred)
 
         if not args.skip_proteome_matches:
             # Calculate number of proteome matches
@@ -405,7 +405,7 @@ for algo_name in os.listdir(args.output_root_dir):
         _append_plot_data(
             aa_precision_plot_data, algo_name, algo_version, 
             coverage.tolist(), precision.tolist(), 
-            auc=auc(coverage, precision)
+            auc=auc(coverage, precision) if len(coverage) > 0 else 0
         )
         
         if not args.skip_proteome_matches:
