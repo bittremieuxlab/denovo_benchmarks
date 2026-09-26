@@ -941,8 +941,8 @@ def run_msgf_search(dset_name, db_search_config):
                 "&&",
                 "mv", res_fname, target_res_dir,
             ]
+            print(" ".join(cmd))
             subprocess.run(" ".join(cmd), shell=True, check=True)
-            # TODO: add mv result mzid to target_res_dir
             print("Target DB search results:\n", os.listdir(target_res_dir), "\n")
 
         print("Run MSGF+ for decoys database:")
@@ -959,8 +959,8 @@ def run_msgf_search(dset_name, db_search_config):
                 "&&",
                 "mv", res_fname, decoys_res_dir,
             ]
+            print(" ".join(cmd))
             subprocess.run(" ".join(cmd), shell=True, check=True)
-            # TODO: add mv result mzid to target_res_dir
             print("Decoys DB search results:\n", os.listdir(decoys_res_dir), "\n")
 
     # Collect target and decoy results into features file

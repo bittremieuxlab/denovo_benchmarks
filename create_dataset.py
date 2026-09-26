@@ -238,7 +238,8 @@ if __name__ == "__main__":
     spectra_idxs_0 = get_mgf_files_spectra_idxs(files_list, mgf_files_dir, raw_files_dir, dset_id, config.download)
 
     # Collect labels
-    labels_fname = "labels.csv" if search_tool == "msfragger" else f"{search_tool}_labels.csv"
+    # labels_fname = "labels.csv" if search_tool == "msfragger" else f"{search_tool}_labels.csv"
+    labels_fname = f"{search_tool}_labels.csv"
     labels_path = os.path.join(DATASET_STORAGE_DIR, dset_name, labels_fname)
     collect_labels(search_tool, rescored_files_dir, rescore_file_prefix, spectra_idxs_0, labels_path, config)
 
