@@ -1,0 +1,5 @@
+- container_version: "12.5"
+  date: "2026-03-01" # date of container update
+  repo_commit: "" # commit with container update
+  notes: "Official release 12.5."
+  upstream_ref: "PEAKS Studio 12.5 (Windows-only)" # optional reference
