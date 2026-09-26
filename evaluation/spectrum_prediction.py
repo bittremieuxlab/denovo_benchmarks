@@ -1,4 +1,4 @@
-"""TODO"""
+"""Methods to predict spectrum intensity and RT with Koina models"""
 
 import os
 import re
@@ -20,13 +20,10 @@ WINDOW_SIZE = 2000
 FRAGMENT_MASS_TOL = 0.02 # Da
 SLEEP = 60 # seconds between Koina requests when chunking
 
-# Methods to predict spectrum intensity and RT with Koina models
-
 # - deeplc_hela_hf
 # Modifications for this model include carbamidomethyl, oxidation of methionine, and N-terminal acetylatio (in train?). 
 # Supported are all modification from UNIMOD. 
 # Cysteine residues are assumed to be carbamidomethylated (C == C[UNIMOD:4]). # This doesn't seem to be true?
-# TODO: so how do we predict for immunopeptides then?
 
 # - ms2pip_HCD2021
 # Valid sequences lengths up to 30 AA
@@ -50,7 +47,7 @@ SLEEP = 60 # seconds between Koina requests when chunking
 # (for GT: delta_mass -> UNIMOD -> PSI-MS)
 # (delta_mass -> UNIMOD we also do for I)
 # (UNIMOD -> PSI-MS we anyway do for de novo peptides)
-# - [?? always assumes C to have [Carbamidomethyl]? So no support for immunopeptides?]
+# - [Always assumes C to have [Carbamidomethyl]? So no direct support for immunopeptides?]
 
 
 def get_RT_model_mods(
