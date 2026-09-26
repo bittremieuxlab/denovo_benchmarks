@@ -10,7 +10,6 @@ from tqdm import tqdm
 
 from . import utils
 from .metrics import spectral_angle
-from .token_masses import AA_MASSES
  
 from koinapy import Koina
 from sklearn.linear_model import LinearRegression
