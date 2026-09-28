@@ -1,0 +1,73 @@
+Bootstrap: docker
+From: continuumio/miniconda3:latest
+# From: python:3.10
+
+%environment
+    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export PYTHONPATH="/algo/denovo_base:$PYTHONPATH"
+
+%files
+    # Copy algorithm-related files to a separate dir /algo.
+    # Don't change the dir name.
+    algorithms/MDLMDec /algo
+    algorithms/base /algo/base
+
+%post
+    # Download algorithm source code
+    cd /algo
+    git clone https://github.com/jlapin1/denovo_base.git
+    cd denovo_base
+    git checkout head
+    # Replace SSH URLs with HTTPS in .gitmodules.
+    # sed -i 's/git@github.com:/https:\/\/github.com\//g' .gitmodules
+    git submodule update --init --recursive
+    cd ..    
+
+    # install conda environment
+    conda create -n temp python=3.10
+
+    # source the conda initialization script before activating an environment
+    conda init
+    . /opt/conda/etc/profile.d/conda.sh
+
+    conda activate temp
+    pip3 install torch torchvision --index-url https://download.pytorch.org/whl/cu126
+    pip install datasets
+    pip install accelerate
+    pip install pyarrow
+    pip install pyteomics
+    pip install scipy
+    pip install scikit-learn
+    pip install spectrum-utils
+    pip install wandb
+    pip install PyYAML
+    pip install tqdm
+
+    cd /algo
+    wget https://zenodo.org/records/21974207/files/model_step298238_high_0.960.wts
+    wget https://zenodo.org/records/21974207/files/config.yaml
+    wget https://zenodo.org/records/21974207/files/dictionary.tsv
+    wget https://zenodo.org/records/21974207/files/masses.tsv
+    
+    # Alter config.yaml for some settings
+    sed -i "s/top_peaks:.*/top_peaks: 300/g" config.yaml
+    sed -i "s/prev_wts:.*/prev_wts: \/algo\/experiment_directory/g" config.yaml
+    sed -i "s/dictionary_path:.*/dictionary_path: .\/dictionary.tsv/g" config.yaml
+    sed -i "s/masses_path:.*/masses_path: .\//g" config.yaml
+
+%post
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+    # Sort files
+    mkdir experiment_directory
+    mkdir experiment_directory/weights
+    mv model*wts experiment_directory/weights
+    mkdir experiment_directory/yaml
+    mv config.yaml experiment_directory/yaml
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
+    # De novo peptide results are generated as /algo/outputs.csv
