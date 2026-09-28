@@ -27,7 +27,7 @@ def _transform_match_ptm(match: re.Match) -> str:
     """
     aa, ptm = match.group(1), match.group(2)
 
-    if not ptm.startswith("-"):
+    if not ptm.startswith("-") and not ptm.startswith("+"):
         ptm = "+" + ptm
     return f"{aa}[{ptm}]"
 
