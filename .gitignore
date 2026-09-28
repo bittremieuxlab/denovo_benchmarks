@@ -1,9 +1,8 @@
 # Private code
 algorithms/novor/set_build_envs.sh
 
-# Data
-datasets/*
-!datasets/sample_data/
+# Local sample data for debugging purposes
+datasets/sample_data/test_*
 
 # Outputs
 outputs*/*
