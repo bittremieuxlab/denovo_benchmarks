@@ -1,0 +1,5 @@
+mass_lambda_max: 1e4
+mass_lambda_min: 1e-4
+intensity_lambda_max: 1e2
+intensity_lambda_min: 1
+smiles_dim: 768
