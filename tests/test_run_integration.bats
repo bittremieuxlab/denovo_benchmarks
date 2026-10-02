@@ -311,3 +311,48 @@ EOF
     apptainer_path=$(which apptainer)
     [[ "$apptainer_path" == "$MOCK_ENV_DIR/bin/apptainer" ]]
 }
+
+# Test 17: Script recalculates with -r placed after positional arguments
+@test "integration: run.sh recalculates output with -r after arguments" {
+    bash run.sh sample_data/test_dataset mock_algo
+
+    output_file="outputs/mock_algo/mock-1.0.0/test_dataset/output.csv"
+    echo "MARKER_LINE" >> "$output_file"
+
+    run bash run.sh sample_data/test_dataset mock_algo -r
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Skipping"* ]]
+    ! grep -q "MARKER_LINE" "$output_file"
+}
+
+# Test 18: Script recalculates with -r placed between positional arguments
+@test "integration: run.sh recalculates output with -r between arguments" {
+    bash run.sh sample_data/test_dataset mock_algo
+
+    output_file="outputs/mock_algo/mock-1.0.0/test_dataset/output.csv"
+    echo "MARKER_LINE" >> "$output_file"
+
+    run bash run.sh sample_data/test_dataset -r mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Skipping"* ]]
+    ! grep -q "MARKER_LINE" "$output_file"
+}
+
+# Test 19: Script runs evaluation by default
+@test "integration: run.sh evaluates predictions by default" {
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"EVALUATE PREDICTIONS"* ]]
+}
+
+# Test 20: Script skips evaluation with --no-eval
+@test "integration: run.sh skips evaluation with --no-eval" {
+    run bash run.sh sample_data/test_dataset mock_algo --no-eval
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Evaluate predictions: false"* ]]
+    [[ "$output" != *"EVALUATE PREDICTIONS"* ]]
+}

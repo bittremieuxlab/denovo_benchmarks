@@ -2,16 +2,24 @@
 # Run a given algorithm on a given dataset (without splitting)
 
 recalculate=false
+evaluate=true
 
-while getopts ":r" opt; do
-  case $opt in
-    r) recalculate=true
-    ;;
-    \?) echo "Invalid option -$OPTARG" >&2
-    ;;
-  esac
+positional=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -r) recalculate=true ;;
+        --no-eval) evaluate=false ;;
+        -*) echo "Error: invalid option $1" >&2; exit 1 ;;
+        *) positional+=("$1") ;;
+    esac
+    shift
 done
-shift $((OPTIND-1))
+set -- "${positional[@]}"
+
+if [ $# -ne 2 ]; then
+    echo "Error: expected <dataset_dir> <algorithm_name>, got $# argument(s)" >&2
+    exit 1
+fi
 
 dset_dir="$1"
 algorithm_name="$2"
@@ -44,6 +52,7 @@ fi
 echo "Running benchmark with $algorithm_name on dataset $dset_name."
 echo "Using algorithm version: $algorithm_version."
 echo "Recalculate the algorithm output: $recalculate."
+echo "Evaluate predictions: $evaluate."
 
 output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
@@ -112,8 +121,10 @@ apptainer exec --fakeroot --env-file .env "evaluation.sif" \
 # 3. Evaluate predictions
 # (evaluation will always run on all available algorithm results for the dataset)
 # TODO: add results_dir explicit definition
-echo "EVALUATE PREDICTIONS"
-apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir}"
-# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-#     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
+if [ "$evaluate" = true ]; then
+    echo "EVALUATE PREDICTIONS"
+    apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+        bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir}"
+    # apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+    #     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
+fi
