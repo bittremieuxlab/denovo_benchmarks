@@ -96,7 +96,9 @@ class RnovaDataset(Dataset):
         node_class = np.concatenate([np.array([1,2]),node_class,np.array([3])])
         node_mass = np.concatenate([np.array([precursor_moverz,0]),node_mass,np.array([precursor_mass])])
         peak_intensity_rank = np.concatenate([np.array([0,0]),peak_intensity_rank,np.array([0])])
-        node_intensity = np.concatenate([np.array([node_intensity.max(),node_intensity.max()]),node_intensity,np.array([node_intensity.max()])])
+        # no fragment node may survive the mask above (e.g. every peak above the precursor mass)
+        max_intensity = node_intensity.max() if node_intensity.size else 0.0
+        node_intensity = np.concatenate([np.array([max_intensity,max_intensity]),node_intensity,np.array([max_intensity])])
         peak_moverz = np.concatenate([np.array([precursor_moverz,0]),peak_moverz,np.array([precursor_moverz])])
 
         return node_mass, node_intensity, peak_intensity_rank, peak_moverz, node_class

@@ -72,6 +72,10 @@ parser.add_argument(
 args = parser.parse_args()
 
 output_data = pd.read_csv(args.output_path, dtype={"title": str, "sequence": str, "score": str})
+if output_data.empty:  # no spectra, or none above RNovA's score cutoff
+    pd.DataFrame(columns=["spectrum_id", "sequence", "score", "aa_scores"]).to_csv(args.result_path, index=False)
+    print(f"0 predictions written to {args.result_path}.")
+    raise SystemExit(0)
 output_data = output_data.rename({"title": "spectrum_id", "score": "aa_scores"}, axis=1)
 
 # A spectrum whose every residue is -inf got no admissible sequence at all:

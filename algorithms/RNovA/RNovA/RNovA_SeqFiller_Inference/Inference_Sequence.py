@@ -71,6 +71,11 @@ def main():
     for mgf_file in mgf_files:
         logger.info("Start analysing %s", mgf_file)
         spectra = read_mgf(mgf_file)
+        if not spectra:  # nothing to sequence (DataPrefetcher cannot start on an empty loader)
+            with open(mgf_file[:-4]+'_rnova_denovo_seq.csv', 'w') as fw:
+                fw.write('title,sequence,score\n')
+            logger.info("No spectra in %s; wrote an empty result file", mgf_file)
+            continue
 
         ds = RnovaDataset(cfg,spectra)
         collator = RnovaCollator(cfg)
