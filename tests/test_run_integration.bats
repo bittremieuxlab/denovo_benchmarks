@@ -260,12 +260,13 @@ EOF
     [[ "$output" == *"not an algorithm"* ]]
 }
 
-# Test 12: Script creates overlay files
-@test "integration: run.sh creates overlay files" {
-    bash run.sh sample_data/test_dataset mock_algo
-    
-    # Overlay should be created during execution
-    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+# Test 12: Script removes the overlay after exporting predictions
+@test "integration: run.sh removes overlay after run" {
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
 }
 
 # Test 13: Script handles -r flag with directory cleanup
@@ -355,4 +356,98 @@ EOF
     [ "$status" -eq 0 ]
     [[ "$output" == *"Evaluate predictions: false"* ]]
     [[ "$output" != *"EVALUATE PREDICTIONS"* ]]
+}
+
+# Test 21: Script removes a leftover overlay when the output already exists
+@test "integration: run.sh removes leftover overlay when skipping" {
+    bash run.sh sample_data/test_dataset mock_algo
+    touch "algorithms/mock_algo/overlay_test_dataset.img"
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping running algorithm"* ]]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 22: Script keeps the overlay for debugging when the algorithm produced no output
+@test "integration: run.sh keeps overlay when algorithm fails" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "mock failure" >&2
+exit 1
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ ! -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 23: Script shows tool output by default
+@test "integration: run.sh shows tool output by default" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "TOOL_NOISE"
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TOOL_NOISE"* ]]
+}
+
+# Test 24: Script hides tool output with -q when the tool succeeds
+@test "integration: run.sh -q hides tool output on success" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "TOOL_NOISE"
+echo "TOOL_STDERR_NOISE" >&2
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"TOOL_NOISE"* ]]
+    [[ "$output" != *"TOOL_STDERR_NOISE"* ]]
+    [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ ! -f "outputs/mock_algo/mock-1.0.0/test_dataset/predict.log" ]
+    grep -q "^real" "outputs/mock_algo/mock-1.0.0/test_dataset/time.log"
+}
+
+# Test 25: Script shows the end of tool output with -q when the tool fails and keeps the full log
+@test "integration: run.sh -q shows tool output tail on failure and keeps predict.log" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "FIRST_LINE"
+for i in $(seq 1 100); do echo "line $i"; done
+echo "TOOL_ERROR_MESSAGE" >&2
+exit 3
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    log_file="outputs/mock_algo/mock-1.0.0/test_dataset/predict.log"
+    [[ "$output" == *"Algorithm mock_algo failed (exit 3)"* ]]
+    [[ "$output" == *"TOOL_ERROR_MESSAGE"* ]]
+    [[ "$output" != *"FIRST_LINE"* ]]
+    [[ "$output" == *"Full tool output: ./$log_file"* ]]
+    grep -q "FIRST_LINE" "$log_file"
+    grep -q "TOOL_ERROR_MESSAGE" "$log_file"
+}
+
+# Test 26: Script passes --quiet to evaluation with -q
+@test "integration: run.sh -q passes --quiet to evaluation" {
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
 }

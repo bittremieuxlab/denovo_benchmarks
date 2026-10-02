@@ -62,6 +62,11 @@ parser.add_argument(
     help="Skip calculation of proteome matches.",
     action="store_true",
 )
+parser.add_argument(
+    "--quiet",
+    help="Hide MMseqs2 output unless an MMseqs2 command fails.",
+    action="store_true",
+)
 args = parser.parse_args()
 
 
@@ -330,6 +335,7 @@ for algo_name in os.listdir(args.output_root_dir):
                 search_result_path,
                 tmp_files_dir,
                 args=MMSEQS2_ARGS,
+                quiet=args.quiet,
             )
             # Map matches back to original de novo sequences
             matched_sequences = search_df["qseq"].tolist() 
