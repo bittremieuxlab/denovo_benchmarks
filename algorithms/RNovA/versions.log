@@ -1,0 +1,5 @@
+- container_version: "1.0.0"
+  date: "2026-10-02"           # date of container update
+  repo_commit: "8a0b8cc"       # denovo_benchmarks commit with container update
+  notes: "RNovA SeqFiller (Zenodo 18352464 weights), C+57/M+16, 10 ppm, isotope shifts -1,0, 8 iterations; sequences with mean residue score < -2.0 not reported."
+  upstream_ref: "git: https://github.com/zqq66/RNovA_SeqFiller_Inference@8196c1a (vendored in RNovA/, with modifications)"
