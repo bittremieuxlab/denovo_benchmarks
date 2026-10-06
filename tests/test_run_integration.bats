@@ -584,3 +584,76 @@ SCRIPT
         [ "$(grep -c -- "-B $abs_dset_dir evaluation.sif" "$TEST_DIR/apptainer_calls.log")" -eq 2 ]
     done
 }
+
+# Helper for run_array.sh tests: working algorithms (output with SA and pred_RT columns, as after augmentation,
+# which the mock apptainer does not run), a failing algorithm and one without augmentation columns;
+# apptainer calls recorded
+setup_run_array() {
+    cp "$ORIG_DIR/run_array.sh" .
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "spectrum_id,sequence,score,aa_scores,SA,pred_RT" > outputs.csv
+echo 'test_1:0,PEPTIDE,0.95,"0.95,0.95",0.8,10.0' >> outputs.csv
+SCRIPT
+    cp -r algorithms/mock_algo algorithms/noaug_algo
+    printf 'echo "spectrum_id,sequence,score,aa_scores" > outputs.csv\necho "test_1:0,PEPTIDE,0.95,0.95" >> outputs.csv\n' \
+        > algorithms/noaug_algo/make_predictions.sh
+    cp -r algorithms/mock_algo algorithms/mock_algo2
+    sed -i 's/mock-1.0.0/mock2-1.0.0/' algorithms/mock_algo2/versions.log
+    cp -r algorithms/mock_algo algorithms/fail_algo
+    printf 'echo "tool crashed" >&2\nexit 1\n' > algorithms/fail_algo/make_predictions.sh
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+}
+
+# Test 34: run_array.sh reports per dataset/algorithm status and evaluates each dataset once
+@test "integration: run_array.sh runs all pairs, reports status, evaluates once per dataset" {
+    setup_run_array
+
+    run bash run_array.sh -d sample_data/test_dataset -a mock_algo -a mock_algo2 -a fail_algo -a noaug_algo -a no_such_algo
+
+    [ "$status" -eq 1 ]
+    summary=$(ls logs/run_array_*/summary.tsv)
+    grep -q "^test_dataset	mock_algo	OK	new output	" "$summary"
+    grep -q "^test_dataset	mock_algo2	OK	new output	" "$summary"
+    grep -q "^test_dataset	fail_algo	FAILED	algorithm failed	" "$summary"
+    grep -q "^test_dataset	noaug_algo	FAILED	augmentation failed	" "$summary"
+    grep -q "^test_dataset	no_such_algo	FAILED	unknown algorithm	-$" "$summary"
+    grep -q "^test_dataset	(evaluation)	OK	evaluated: mock_algo:mock-1.0.0 mock_algo2:mock2-1.0.0	" "$summary"
+    # run.sh is called without evaluation, evaluation runs once for the dataset
+    [ "$(grep -c "evaluation.evaluate" "$TEST_DIR/apptainer_calls.log")" -eq 1 ]
+    grep -q "evaluation.evaluate ./outputs/ sample_data/test_dataset --algorithms mock_algo:mock-1.0.0 mock_algo2:mock2-1.0.0" "$TEST_DIR/apptainer_calls.log"
+    # per pair logs
+    grep -q "tool crashed" logs/run_array_*/test_dataset__fail_algo.log
+    [[ "$output" == *"SUMMARY"* ]]
+}
+
+# Test 35: run_array.sh reports reused outputs on a rerun, -q is passed on
+@test "integration: run_array.sh reuses existing output and passes -q" {
+    setup_run_array
+    bash run_array.sh -d sample_data/test_dataset -a mock_algo
+    rm -rf logs "$TEST_DIR/apptainer_calls.log"
+
+    run bash run_array.sh -q -d sample_data/test_dataset -a mock_algo
+
+    [ "$status" -eq 0 ]
+    grep -q "^test_dataset	mock_algo	OK	existing output reused	" logs/run_array_*/summary.tsv
+    grep -q "Quiet mode (show tool output only on failure): true" logs/run_array_*/test_dataset__mock_algo.log
+    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 36: run_array.sh requires datasets, defaults to algorithms with a container.def
+@test "integration: run_array.sh requires datasets and defaults to algorithms with container.def" {
+    setup_run_array
+    run bash run_array.sh -a mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"at least one dataset is required"* ]]
+
+    touch algorithms/mock_algo/container.def algorithms/mock_algo2/container.def
+    run bash run_array.sh -d sample_data/test_dataset
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Algorithms: mock_algo mock_algo2"* ]]
+}
