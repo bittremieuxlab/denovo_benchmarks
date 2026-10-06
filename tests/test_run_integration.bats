@@ -451,3 +451,136 @@ SCRIPT
     [ "$status" -eq 0 ]
     grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
 }
+
+# Test 27: Script evaluates only the algorithm version it ran
+@test "integration: run.sh passes --algorithms with its algorithm version to evaluation" {
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.evaluate .* --algorithms mock_algo:mock-1.0.0" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 28: run_split.sh runs each part and merges outputs into the output layout
+@test "integration: run_split.sh runs each part and merges outputs" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"for test_dataset part 0:"* ]]
+    [[ "$output" == *"for test_dataset part 1:"* ]]
+    # one header + 2 rows from each of the 2 parts
+    [ "$(wc -l < "$output_dir/output.csv")" -eq 5 ]
+    [ "$(grep -c "scan,sequence,score" "$output_dir/output.csv")" -eq 1 ]
+    [ "$(grep -c "^real" "$output_dir/time.log")" -eq 1 ]
+    [ ! -e "outputs/test_dataset_part_0" ]
+    [ ! -e "times/test_dataset_part_0" ]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 29: run_split.sh with more parts than files
+@test "integration: run_split.sh with more parts than files" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 5
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"part 2:"* ]]
+    [[ "$output" != *"No such file"* ]]
+    [[ "$output" != *"syntax error"* ]]
+    [ "$(wc -l < outputs/mock_algo/mock-1.0.0/test_dataset/output.csv)" -eq 5 ]
+}
+
+# Test 30: run_split.sh does not merge after a failed part; a rerun only runs missing parts
+@test "integration: run_split.sh does not merge after a failed part and reruns only missing parts" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # First call succeeds, second call fails
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+if [ -e part_done ]; then exit 1; fi
+touch part_done
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"part 1 produced no output, not merging"* ]]
+    [ ! -e "$output_dir/output.csv" ]
+    [ -e "outputs/test_dataset_part_0/mock_algo_output.csv" ]
+    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+
+    # Rerun with a working algorithm: part 0 is skipped, part 1 runs, outputs are merged
+    rm algorithms/mock_algo/part_done
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping test_dataset part 0"* ]]
+    [[ "$output" == *"for test_dataset part 1:"* ]]
+    [ "$(wc -l < "$output_dir/output.csv")" -eq 3 ]
+}
+
+# Test 31: run_split.sh evaluates only its algorithm version
+@test "integration: run_split.sh passes --algorithms with its algorithm version to evaluation" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.augment_predictions --output_dir ./outputs/mock_algo/mock-1.0.0/test_dataset" "$TEST_DIR/apptainer_calls.log"
+    grep -q "evaluation.evaluate .* --algorithms mock_algo:mock-1.0.0" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 32: run_split.sh rejects unknown algorithms and 'base'
+@test "integration: run_split.sh rejects unknown algorithm and base" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset no_such_algo 2
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"'no_such_algo' not found"* ]]
+
+    run bash run_split.sh sample_data/test_dataset base 2
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not an algorithm"* ]]
+}
+
+# Test 33: run.sh and run_split.sh mount the dataset dir in augmentation and evaluation containers
+@test "integration: augmentation and evaluation mount the dataset dir" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+    abs_dset_dir="$(realpath sample_data/test_dataset)"
+
+    for script in "run.sh" "run_split.sh"; do
+        rm -rf outputs "$TEST_DIR/apptainer_calls.log"
+        if [ "$script" = "run.sh" ]; then
+            run bash run.sh sample_data/test_dataset mock_algo
+        else
+            run bash run_split.sh sample_data/test_dataset mock_algo 2
+        fi
+        [ "$status" -eq 0 ]
+        [ "$(grep -c -- "-B $abs_dset_dir evaluation.sif" "$TEST_DIR/apptainer_calls.log")" -eq 2 ]
+    done
+}
