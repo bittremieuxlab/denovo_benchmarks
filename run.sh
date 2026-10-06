@@ -138,13 +138,13 @@ apptainer exec --fakeroot --env-file .env "evaluation.sif" \
 # TODO: fix augment_predictions semantics, only pass necessary information
 
 # 3. Evaluate predictions
-# (evaluation will always run on all available algorithm results for the dataset)
+# (only this algorithm version is evaluated; results of other algorithms are kept)
 # TODO: add results_dir explicit definition
 if [ "$evaluate" = true ]; then
     echo "EVALUATE PREDICTIONS"
-    eval_args=""
+    eval_args="--algorithms ${algorithm_name}:${algorithm_version}"
     if [ "$quiet" = true ]; then
-        eval_args="--quiet"
+        eval_args="$eval_args --quiet"
     fi
     apptainer exec --fakeroot --env-file .env "evaluation.sif" \
         bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} ${eval_args}"
