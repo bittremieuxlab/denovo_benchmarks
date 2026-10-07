@@ -657,3 +657,77 @@ SCRIPT
     [ "$status" -eq 0 ]
     [[ "$output" == *"Algorithms: mock_algo mock_algo2"* ]]
 }
+
+# Test 37: run_test.sh runs the algorithm on the sample dataset and validates the output format
+@test "integration: run_test.sh runs on sample dataset with .env and reports validation" {
+    cp "$ORIG_DIR/run_test.sh" .
+    mkdir -p sample_data/9_species_human/mgf
+    cp sample_data/test_dataset/mgf/spectrum1.mgf sample_data/9_species_human/mgf/
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run_test.sh mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"OUTPUT FORMAT VALIDATED."* ]]
+    grep -q -- "-B sample_data/9_species_human/mgf:/algo/9_species_human --env-file .env .*make_predictions.sh 9_species_human" "$TEST_DIR/apptainer_calls.log"
+    grep -q "python test_output_format.py" "$TEST_DIR/apptainer_calls.log"
+    [ ! -e "algorithms/mock_algo/test_overlay.img" ]
+    [ ! -e "test_outputs" ]
+}
+
+# Test 38: run.sh skips an algorithm without container, unless its output already exists
+@test "integration: run.sh skips an algorithm without container" {
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    rm algorithms/mock_algo/container.sif
+
+    run bash run.sh sample_data/test_dataset mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Skipping mock_algo: container algorithms/mock_algo/container.sif not found."* ]]
+    [[ "$output" != *"RUN ALGORITHM"* ]]
+    [ ! -e "algorithms/mock_algo/overlay_test_dataset.img" ]
+
+    # Existing output: no container needed (augmentation and evaluation only)
+    mkdir -p "$output_dir"
+    echo "spectrum_id,sequence,score" > "$output_dir/output.csv"
+    run bash run.sh sample_data/test_dataset mock_algo
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping running algorithm"* ]]
+
+    # Recalculation needs the container: existing output is kept
+    run bash run.sh -r sample_data/test_dataset mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"container algorithms/mock_algo/container.sif not found"* ]]
+    [ -e "$output_dir/output.csv" ]
+}
+
+# Test 39: run_split.sh skips an algorithm without container
+@test "integration: run_split.sh skips an algorithm without container" {
+    cp "$ORIG_DIR/run_split.sh" .
+    rm algorithms/mock_algo/container.sif
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Skipping mock_algo: container algorithms/mock_algo/container.sif not found."* ]]
+    [ ! -e "outputs/test_dataset_part_0" ]
+}
+
+# Test 40: run_array.sh reports algorithms without container as SKIPPED (not a failure)
+@test "integration: run_array.sh reports algorithms without container as skipped" {
+    setup_run_array
+    rm algorithms/mock_algo2/container.sif
+
+    run bash run_array.sh -d sample_data/test_dataset -a mock_algo -a mock_algo2
+
+    [ "$status" -eq 0 ]
+    summary=$(ls logs/run_array_*/summary.tsv)
+    grep -q "^test_dataset	mock_algo	OK	new output	" "$summary"
+    grep -q "^test_dataset	mock_algo2	SKIPPED	no container	-$" "$summary"
+    grep -q "^test_dataset	(evaluation)	OK	evaluated: mock_algo:mock-1.0.0	" "$summary"
+}
