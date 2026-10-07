@@ -1,0 +1,8 @@
+peptide_max_len: 32
+ms2_max_peak_count: 382
+max_iter: 4 #max_iter means max inference interation number in a BATCH. 
+node_size_bucket: 
+  - 128
+  - 256
+  - 512
+  - 768

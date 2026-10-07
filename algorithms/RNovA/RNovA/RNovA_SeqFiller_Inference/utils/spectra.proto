@@ -1,0 +1,6 @@
+syntax = "proto3";
+
+message Spectra {
+  repeated uint64 moverz = 1;
+  repeated sint64 intensity = 2;
+}

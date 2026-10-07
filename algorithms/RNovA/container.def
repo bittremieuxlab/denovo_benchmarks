@@ -1,0 +1,56 @@
+Bootstrap: docker
+# Full (non-slim) image: SeqFiller's knapsack extension is compiled with gcc in %post.
+From: python:3.12
+
+%environment
+    # Prebuilt knapsack table for candidates.txt (see prebuild_knapsack.py).
+    export RNOVA_KNAPSACK_CACHE=/algo/knapsack_cache
+    # Apptainer binds $HOME; keep host user site-packages out of the environment.
+    export PYTHONNOUSERSITE=1
+
+%files
+    # Explicit files rather than the whole folder, so an existing container.sif
+    # or overlay in algorithms/RNovA is never copied into the image.
+    algorithms/RNovA/make_predictions.sh /algo/make_predictions.sh
+    algorithms/RNovA/input_mapper.py /algo/input_mapper.py
+    algorithms/RNovA/output_mapper.py /algo/output_mapper.py
+    algorithms/RNovA/prebuild_knapsack.py /algo/prebuild_knapsack.py
+    algorithms/RNovA/candidates.txt /algo/candidates.txt
+    algorithms/RNovA/RNovA /algo/RNovA
+    algorithms/base /algo/base
+
+%post
+    set -e
+    SEQFILLER=/algo/RNovA/RNovA_SeqFiller_Inference
+
+    # Install dependencies (torch 2.7.1 from PyPI bundles its CUDA 12.6 runtime)
+    pip install --no-cache-dir -r "$SEQFILLER/requirements.uv"
+    # FlashAttention is not in requirements.uv; prebuilt wheel matching
+    # torch 2.7 / CUDA 12 / cp312. Needs an Ampere or newer GPU at run time.
+    pip install --no-cache-dir --no-deps \
+        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.7cxx11abiTRUE-cp312-cp312-linux_x86_64.whl"
+    # (pandas and pyteomics are needed by the benchmark base classes)
+    pip install --no-cache-dir pandas pyteomics tqdm
+
+    # Compile the knapsack Cython extension for this interpreter
+    cd "$SEQFILLER" && python setup.py build_ext --inplace && rm -rf build
+
+    # Download SeqFiller weights (Zenodo record 18352464) and verify them
+    curl -fsSL -o /tmp/RNovA_Checkpoint.zip \
+        "https://zenodo.org/api/records/18352464/files/RNovA_Checkpoint.zip/content"
+    echo "e114813f043dbc93b800aa48d4797ada  /tmp/RNovA_Checkpoint.zip" | md5sum -c -
+    mkdir -p "$SEQFILLER/save"
+    python -c "import zipfile, shutil; z = zipfile.ZipFile('/tmp/RNovA_Checkpoint.zip'); shutil.copyfileobj(z.open('RNovA_Checkpoint/SeqFiller/rnova.pt'), open('$SEQFILLER/save/rnova.pt', 'wb'))"
+    echo "af4110919a380a5ba39f5f2d68315a36  $SEQFILLER/save/rnova.pt" | md5sum -c -
+    rm /tmp/RNovA_Checkpoint.zip
+
+    # Prebuild the knapsack table for the default candidate list
+    cd /algo && RNOVA_KNAPSACK_CACHE=/algo/knapsack_cache python prebuild_knapsack.py candidates.txt
+
+    # Make sure make_predictions.sh file is executable.
+    chmod +x /algo/make_predictions.sh
+
+# Run algorithm and convert outputs.
+# Data is expected to be mounted into /algo/data dir.
+%runscript
+    cd /algo && ./make_predictions.sh data
