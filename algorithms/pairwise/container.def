@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 # From: python:3.10
 
 %environment
@@ -28,6 +28,7 @@ From: continuumio/miniconda3:latest
     . /opt/conda/etc/profile.d/conda.sh
 
     conda activate pairwise_env
+    pip install "setuptools<82"
 
     # install our fork of depthcharge
     cd depthcharge
