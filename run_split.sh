@@ -37,6 +37,10 @@ total_files=${#mgf_files[@]}
 # Loop through each algorithm in the algorithms directory
 part_size=$(( (total_files + split_n - 1) / split_n ))
 n_parts=$(( (total_files + part_size - 1) / part_size ))
+if [ ! -f "algorithms/${algorithm_name}/container.sif" ]; then
+    echo "Skipping ${algorithm_name}: container algorithms/${algorithm_name}/container.sif not found." >&2
+    exit 1
+fi
 # iterate through parts
 for part_idx in $(seq 0 $((split_n-1))); do
 

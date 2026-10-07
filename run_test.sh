@@ -1,6 +1,8 @@
 #!/bin/bash
 algorithm_name="$1"
-test_spectra_dir="datasets/sample_data"
+test_dset_dir="sample_data/9_species_human"
+test_dset_name=$(basename "$test_dset_dir")
+test_spectra_dir="$test_dset_dir/mgf"
 overlay_size=512
 test_output_dir="./test_outputs"
 
@@ -27,15 +29,17 @@ apptainer overlay create --fakeroot --size $overlay_size \
 echo "RUN ALGORITHM"
 apptainer exec --fakeroot --nv \
     --overlay "algorithms/${algorithm_name}/test_overlay.img" \
-    -B "${test_spectra_dir}":/algo/data \
+    -B "${test_spectra_dir}":"/algo/${test_dset_name}" \
+    --env-file .env \
     "algorithms/${algorithm_name}/container.sif" \
-    bash -c "cd /algo && ./make_predictions.sh data"
+    bash -c "cd /algo && ./make_predictions.sh ${test_dset_name}"
 
 # Collect predictions in output_dir
 echo "EXPORT PREDICTIONS"
 apptainer exec --fakeroot \
     --overlay "algorithms/${algorithm_name}/test_overlay.img" \
     -B "${test_output_dir}":/algo/outputs \
+    --env-file .env \
     "algorithms/${algorithm_name}/container.sif" \
     bash -c "cp /algo/outputs.csv /algo/outputs/test_output.csv"
 
@@ -44,11 +48,18 @@ apptainer exec --fakeroot \
 echo "VALIDATE PREDICTIONS OUTPUT FORMAT"
 apptainer exec --fakeroot "evaluation.sif" \
     bash -c "python test_output_format.py"
+validation_status=$?
 
-echo "OUTPUT FORMAT VALIDATED."
+if [ $validation_status -eq 0 ]; then
+    echo "OUTPUT FORMAT VALIDATED."
+else
+    echo "OUTPUT FORMAT VALIDATION FAILED."
+fi
 
 # Remove test container image and overlay
 # TODO: make a flag to not remove container if needed
 # rm -rf "algorithms/${algorithm_name}/test_container.sif"
 rm -rf "algorithms/${algorithm_name}/test_overlay.img"
 rm -rf "${test_output_dir}"
+
+exit $validation_status

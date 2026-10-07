@@ -50,6 +50,9 @@ for dset_dir in "${datasets[@]}"; do
             status="FAILED"; details="unknown algorithm"; log_file="-"
         elif [ -z "$algorithm_version" ]; then
             status="FAILED"; details="no container_version in versions.log"; log_file="-"
+        elif { [ "$recalculate" = true ] || [ ! -e "$output_file" ]; } \
+                && [ ! -f "algorithms/${algorithm_name}/container.sif" ]; then
+            status="SKIPPED"; details="no container"; log_file="-"
         else
             details="new output"
             if [ -e "$output_file" ] && [ "$recalculate" = false ]; then

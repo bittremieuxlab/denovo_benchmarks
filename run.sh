@@ -59,6 +59,12 @@ echo "Quiet mode (show tool output only on failure): $quiet."
 
 output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
+if { [ "$recalculate" = true ] || [ ! -e "$output_dir/output.csv" ]; } \
+        && [ ! -f "algorithms/${algorithm_name}/container.sif" ]; then
+    echo "Skipping ${algorithm_name}: container algorithms/${algorithm_name}/container.sif not found." >&2
+    exit 1
+fi
+
 if [ "$recalculate" = true ]; then
     # Clean output dir 
     rm -rf "$output_dir"

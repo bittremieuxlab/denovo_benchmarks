@@ -130,7 +130,7 @@ To run the benchmark locally:
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/PominovaMS/denovo_benchmarks.git
+    git clone https://github.com/bittremieuxlab/denovo_benchmarks.git
     cd denovo_benchmarks
     ```
 
@@ -156,6 +156,8 @@ To run the benchmark locally:
     In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
     
     After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
+    The scripts need at least `DATASET_TAGS_PATH` (path to `dataset_tags.tsv`, used by the algorithms and the evaluation) 
+    and `PROTEOMES_DIR` (folder with the reference proteomes).
 
 4. **Run benchmark on a dataset**:
     <!-- Make sure the required packages are installed:
@@ -164,15 +166,49 @@ To run the benchmark locally:
     sudo apt install squashfuse gocryptfs fuse-overlayfs  
     ``` -->
 
-    Run the benchmark:
+    Run the benchmark of an algorithm on a dataset:
 
     ```bash
-    ./run.sh /path/to/dataset/dir
+    ./run.sh [-r] [-q] [--no-eval] /path/to/dataset/dir algorithm_name
     ```
     Example:
     ```bash
-    ./run.sh sample_data/9_species_human
+    ./run.sh sample_data/9_species_human casanovo
     ```
+
+    Options:
+    - `-r` — recalculate the algorithm output, even if it already exists
+    - `-q` — quiet mode: hide the output of the algorithm and of MMseqs2 unless they fail
+    - `--no-eval` — skip the evaluation step
+
+    The script runs the latest algorithm container version (from `algorithms/<algorithm>/versions.log`), 
+    augments the predictions and evaluates them. 
+    Outputs are stored as:
+    ```
+    outputs/<algorithm>/<version>/<dataset>/
+        output.csv   # predictions
+        time.log     # algorithm run time
+    ```
+    Evaluation results are stored in `results/<dataset>/`. Only the rows of the evaluated algorithm version 
+    are added or replaced, results of other algorithms are kept.
+
+5. **Run several datasets and algorithms**:
+
+    ```bash
+    ./run_array.sh [-r] [-q] -d /path/to/dataset1 [-d /path/to/dataset2 ...] [-a algorithm1 -a algorithm2 ...]
+    ```
+    Runs `run.sh` for every dataset and algorithm (default: all algorithms with a `container.def`), 
+    then evaluates each dataset. 
+
+6. **Run an algorithm on parts of a dataset** (e.g. for large datasets):
+
+    ```bash
+    ./run_split.sh /path/to/dataset/dir algorithm_name number_of_parts
+    ```
+    Runs the algorithm separately on parts of the dataset's `.mgf` files, merges the part outputs 
+    into `outputs/<algorithm>/<version>/<dataset>/output.csv`, then augments and evaluates them. 
+    If some part fails, outputs are not merged. A rerun only runs the missing parts.
+```
 
 
 ## Running Streamlit dashboard locally:
