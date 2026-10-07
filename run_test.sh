@@ -1,4 +1,11 @@
 #!/bin/bash
+# Usage: run_test.sh [-k] <algorithm_name>
+#   -k  keep the test outputs (test_outputs/test_output.csv) and the test overlay
+keep=false
+if [ "$1" = "-k" ]; then
+    keep=true
+    shift
+fi
 algorithm_name="$1"
 test_dset_dir="sample_data/9_species_human"
 test_dset_name=$(basename "$test_dset_dir")
@@ -56,10 +63,13 @@ else
     echo "OUTPUT FORMAT VALIDATION FAILED."
 fi
 
-# Remove test container image and overlay
-# TODO: make a flag to not remove container if needed
+# Remove test container image and overlay (unless -k)
 # rm -rf "algorithms/${algorithm_name}/test_container.sif"
-rm -rf "algorithms/${algorithm_name}/test_overlay.img"
-rm -rf "${test_output_dir}"
+if [ "$keep" = true ]; then
+    echo "Kept test outputs: ${test_output_dir}/test_output.csv, algorithms/${algorithm_name}/test_overlay.img"
+else
+    rm -rf "algorithms/${algorithm_name}/test_overlay.img"
+    rm -rf "${test_output_dir}"
+fi
 
 exit $validation_status

@@ -731,3 +731,17 @@ SCRIPT
     grep -q "^test_dataset	mock_algo2	SKIPPED	no container	-$" "$summary"
     grep -q "^test_dataset	(evaluation)	OK	evaluated: mock_algo:mock-1.0.0	" "$summary"
 }
+
+# Test 41: run_test.sh -k keeps the test outputs and overlay
+@test "integration: run_test.sh -k keeps test outputs" {
+    cp "$ORIG_DIR/run_test.sh" .
+    mkdir -p sample_data/9_species_human/mgf
+    cp sample_data/test_dataset/mgf/spectrum1.mgf sample_data/9_species_human/mgf/
+
+    run bash run_test.sh -k mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Kept test outputs"* ]]
+    [ -e "test_outputs/test_output.csv" ]
+    [ -e "algorithms/mock_algo/test_overlay.img" ]
+}
