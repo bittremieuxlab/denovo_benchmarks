@@ -13,6 +13,7 @@ from sklearn.metrics import auc
 from . import utils
 from . import mmseqs
 from . import ground_truth_mapper
+from .results import save_results
 from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
     FRAGMENT_MASS_TOL,
@@ -62,7 +63,29 @@ parser.add_argument(
     help="Skip calculation of proteome matches.",
     action="store_true",
 )
+parser.add_argument(
+    "--algorithms",
+    nargs="+",
+    default=None,
+    help="""
+    Only evaluate these algorithms, given as `algorithm_name` (all versions)
+    or `algorithm_name:algorithm_version`.
+    """,
+)
+parser.add_argument(
+    "--quiet",
+    help="Hide MMseqs2 output unless an MMseqs2 command fails.",
+    action="store_true",
+)
 args = parser.parse_args()
+
+# Parse selected algorithms: {algorithm_name: algorithm_version or None (all versions)}
+selected_algorithms = None
+if args.algorithms is not None:
+    selected_algorithms = {}
+    for algorithm in args.algorithms:
+        algo_name, _, algo_version = algorithm.partition(":")
+        selected_algorithms.setdefault(algo_name, set()).add(algo_version or None)
 
 
 # Define dataset name and path to store evaluation results
@@ -241,10 +264,16 @@ for algo_name in os.listdir(args.output_root_dir):
     algo_dir = os.path.join(args.output_root_dir, algo_name)
     if not os.path.isdir(algo_dir):
         continue
+    if selected_algorithms is not None and algo_name not in selected_algorithms:
+        continue
 
     for algo_version in os.listdir(algo_dir):
         version_dir = os.path.join(algo_dir, algo_version)
         if not os.path.isdir(version_dir):
+            continue
+        if selected_algorithms is not None and not (
+            None in selected_algorithms[algo_name] or algo_version in selected_algorithms[algo_name]
+        ):
             continue
 
         full_algo_name = f"{algo_name}_{algo_version}"
@@ -330,6 +359,7 @@ for algo_name in os.listdir(args.output_root_dir):
                 search_result_path,
                 tmp_files_dir,
                 args=MMSEQS2_ARGS,
+                quiet=args.quiet,
             )
             # Map matches back to original de novo sequences
             matched_sequences = search_df["qseq"].tolist() 
@@ -460,20 +490,22 @@ if not args.skip_proteome_matches:
 dataset_results_dir = os.path.join(args.results_dir, dataset_name)
 os.makedirs(dataset_results_dir, exist_ok=True)
 
+# (merge into existing results files: rows of evaluated algorithms are replaced, other rows are kept)
+plot_key_cols = ["algorithm", "version"]
 pep_precision_plot_data = pd.DataFrame(pep_precision_plot_data)
-pep_precision_plot_data.to_csv(os.path.join(dataset_results_dir, "peptide_precision_plot_data.csv"), index=False)
+save_results(pep_precision_plot_data, os.path.join(dataset_results_dir, "peptide_precision_plot_data.csv"), plot_key_cols)
 aa_precision_plot_data = pd.DataFrame(aa_precision_plot_data)
-aa_precision_plot_data.to_csv(os.path.join(dataset_results_dir, "AA_precision_plot_data.csv"), index=False)
+save_results(aa_precision_plot_data, os.path.join(dataset_results_dir, "AA_precision_plot_data.csv"), plot_key_cols)
 if not args.skip_proteome_matches:
     n_proteome_matches_plot_data = pd.DataFrame(n_proteome_matches_plot_data)
-    n_proteome_matches_plot_data.to_csv(os.path.join(dataset_results_dir, "number_of_proteome_matches_plot_data.csv"), index=False)
+    save_results(n_proteome_matches_plot_data, os.path.join(dataset_results_dir, "number_of_proteome_matches_plot_data.csv"), plot_key_cols)
 rt_diff_plot_data = pd.DataFrame(rt_diff_plot_data)
-rt_diff_plot_data.to_csv(os.path.join(dataset_results_dir, "RT_difference_plot_data.csv"), index=False)
+save_results(rt_diff_plot_data, os.path.join(dataset_results_dir, "RT_difference_plot_data.csv"), plot_key_cols)
 sa_plot_data = pd.DataFrame(sa_plot_data)
-sa_plot_data.to_csv(os.path.join(dataset_results_dir, "SA_plot_data.csv"), index=False) 
+save_results(sa_plot_data, os.path.join(dataset_results_dir, "SA_plot_data.csv"), plot_key_cols)
 
 output_metrics = pd.DataFrame(output_metrics).T
-output_metrics.to_csv(os.path.join(dataset_results_dir, "metrics.csv"))
+save_results(output_metrics, os.path.join(dataset_results_dir, "metrics.csv"))
 
 
 if not args.skip_proteome_matches:

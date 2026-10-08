@@ -2,16 +2,26 @@
 # Run a given algorithm on a given dataset (without splitting)
 
 recalculate=false
+evaluate=true
+quiet=false
 
-while getopts ":r" opt; do
-  case $opt in
-    r) recalculate=true
-    ;;
-    \?) echo "Invalid option -$OPTARG" >&2
-    ;;
-  esac
+positional=()
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -r) recalculate=true ;;
+        --no-eval) evaluate=false ;;
+        -q|--quiet) quiet=true ;;
+        -*) echo "Error: invalid option $1" >&2; exit 1 ;;
+        *) positional+=("$1") ;;
+    esac
+    shift
 done
-shift $((OPTIND-1))
+set -- "${positional[@]}"
+
+if [ $# -ne 2 ]; then
+    echo "Error: expected <dataset_dir> <algorithm_name>, got $# argument(s)" >&2
+    exit 1
+fi
 
 dset_dir="$1"
 algorithm_name="$2"
@@ -44,8 +54,16 @@ fi
 echo "Running benchmark with $algorithm_name on dataset $dset_name."
 echo "Using algorithm version: $algorithm_version."
 echo "Recalculate the algorithm output: $recalculate."
+echo "Evaluate predictions: $evaluate."
+echo "Quiet mode (show tool output only on failure): $quiet."
 
 output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
+
+if { [ "$recalculate" = true ] || [ ! -e "$output_dir/output.csv" ]; } \
+        && [ ! -f "algorithms/${algorithm_name}/container.sif" ]; then
+    echo "Skipping ${algorithm_name}: container algorithms/${algorithm_name}/container.sif not found." >&2
+    exit 1
+fi
 
 if [ "$recalculate" = true ]; then
     # Clean output dir 
@@ -75,12 +93,29 @@ if [ ! -e "$output_file" ]; then
 
     # Calculate predictions
     echo "RUN ALGORITHM $algorithm_name"
+    tool_log="$output_dir/predict.log"
+    if [ "$quiet" = true ]; then
+        exec 3> "$tool_log"
+    else
+        exec 3>&1
+    fi
     { time ( apptainer exec --fakeroot --nv \
         --overlay "algorithms/${algorithm_name}/overlay_${dset_name}.img" \
         -B "${spectra_dir}":"/algo/${dset_name}" \
         --env-file .env \
         "algorithms/${algorithm_name}/container.sif" \
-        bash -c "cd /algo && ./make_predictions.sh ${dset_name}" 2>&1 ); } 2> "$time_log_file"
+        bash -c "cd /algo && ./make_predictions.sh ${dset_name}" 2>&1 ) >&3; } 2> "$time_log_file"
+    predict_status=$?
+    exec 3>&-
+    if [ "$quiet" = true ]; then
+        if [ $predict_status -ne 0 ]; then
+            echo "Algorithm $algorithm_name failed (exit $predict_status). Last 50 lines of tool output:"
+            tail -n 50 "$tool_log"
+            echo "Full tool output: $tool_log"
+        else
+            rm -f "$tool_log"
+        fi
+    fi
     
     # Collect predictions in output_dir
     echo "EXPORT PREDICTIONS"
@@ -93,11 +128,10 @@ if [ ! -e "$output_file" ]; then
 
 else
     echo "Skipping running algorithm: $algorithm_name. Output file already exists."
+fi
 
-    # Remove an existing container overlay, if any
-    # FIXME: mb put this part outside if-else statement? 
-    # Now when each dataset has separate container overlays,
-    # old dataset overlays must be removed if output file already exists.
+# Remove the container overlay once predictions are exported (keep it for debugging if export failed)
+if [ -e "$output_file" ]; then
     rm -rf "algorithms/${algorithm_name}/overlay_${dset_name}.img"
 fi
 
@@ -105,15 +139,21 @@ fi
 echo "Output file: $output_file"
 # Augment algorithm predictions with RT and SA (if not already present)
 echo "AUGMENT PREDICTIONS"
-apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluation.sif" \
     bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir}"
 # TODO: fix augment_predictions semantics, only pass necessary information
 
 # 3. Evaluate predictions
-# (evaluation will always run on all available algorithm results for the dataset)
+# (only this algorithm version is evaluated; results of other algorithms are kept)
 # TODO: add results_dir explicit definition
-echo "EVALUATE PREDICTIONS"
-apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-    bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir}"
-# apptainer exec --fakeroot --env-file .env "evaluation.sif" \
-#     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
+if [ "$evaluate" = true ]; then
+    echo "EVALUATE PREDICTIONS"
+    eval_args="--algorithms ${algorithm_name}:${algorithm_version}"
+    if [ "$quiet" = true ]; then
+        eval_args="$eval_args --quiet"
+    fi
+    apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluation.sif" \
+        bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} ${eval_args}"
+    # apptainer exec --fakeroot --env-file .env "evaluation.sif" \
+    #     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
+fi

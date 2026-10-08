@@ -260,12 +260,13 @@ EOF
     [[ "$output" == *"not an algorithm"* ]]
 }
 
-# Test 12: Script creates overlay files
-@test "integration: run.sh creates overlay files" {
-    bash run.sh sample_data/test_dataset mock_algo
-    
-    # Overlay should be created during execution
-    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+# Test 12: Script removes the overlay after exporting predictions
+@test "integration: run.sh removes overlay after run" {
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
 }
 
 # Test 13: Script handles -r flag with directory cleanup
@@ -310,4 +311,437 @@ EOF
 @test "integration: mock apptainer from setup_mock.sh is used" {
     apptainer_path=$(which apptainer)
     [[ "$apptainer_path" == "$MOCK_ENV_DIR/bin/apptainer" ]]
+}
+
+# Test 17: Script recalculates with -r placed after positional arguments
+@test "integration: run.sh recalculates output with -r after arguments" {
+    bash run.sh sample_data/test_dataset mock_algo
+
+    output_file="outputs/mock_algo/mock-1.0.0/test_dataset/output.csv"
+    echo "MARKER_LINE" >> "$output_file"
+
+    run bash run.sh sample_data/test_dataset mock_algo -r
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Skipping"* ]]
+    ! grep -q "MARKER_LINE" "$output_file"
+}
+
+# Test 18: Script recalculates with -r placed between positional arguments
+@test "integration: run.sh recalculates output with -r between arguments" {
+    bash run.sh sample_data/test_dataset mock_algo
+
+    output_file="outputs/mock_algo/mock-1.0.0/test_dataset/output.csv"
+    echo "MARKER_LINE" >> "$output_file"
+
+    run bash run.sh sample_data/test_dataset -r mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"Skipping"* ]]
+    ! grep -q "MARKER_LINE" "$output_file"
+}
+
+# Test 19: Script runs evaluation by default
+@test "integration: run.sh evaluates predictions by default" {
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"EVALUATE PREDICTIONS"* ]]
+}
+
+# Test 20: Script skips evaluation with --no-eval
+@test "integration: run.sh skips evaluation with --no-eval" {
+    run bash run.sh sample_data/test_dataset mock_algo --no-eval
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Evaluate predictions: false"* ]]
+    [[ "$output" != *"EVALUATE PREDICTIONS"* ]]
+}
+
+# Test 21: Script removes a leftover overlay when the output already exists
+@test "integration: run.sh removes leftover overlay when skipping" {
+    bash run.sh sample_data/test_dataset mock_algo
+    touch "algorithms/mock_algo/overlay_test_dataset.img"
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping running algorithm"* ]]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 22: Script keeps the overlay for debugging when the algorithm produced no output
+@test "integration: run.sh keeps overlay when algorithm fails" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "mock failure" >&2
+exit 1
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ ! -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 23: Script shows tool output by default
+@test "integration: run.sh shows tool output by default" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "TOOL_NOISE"
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"TOOL_NOISE"* ]]
+}
+
+# Test 24: Script hides tool output with -q when the tool succeeds
+@test "integration: run.sh -q hides tool output on success" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "TOOL_NOISE"
+echo "TOOL_STDERR_NOISE" >&2
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"TOOL_NOISE"* ]]
+    [[ "$output" != *"TOOL_STDERR_NOISE"* ]]
+    [ -f "outputs/mock_algo/mock-1.0.0/test_dataset/output.csv" ]
+    [ ! -f "outputs/mock_algo/mock-1.0.0/test_dataset/predict.log" ]
+    grep -q "^real" "outputs/mock_algo/mock-1.0.0/test_dataset/time.log"
+}
+
+# Test 25: Script shows the end of tool output with -q when the tool fails and keeps the full log
+@test "integration: run.sh -q shows tool output tail on failure and keeps predict.log" {
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "FIRST_LINE"
+for i in $(seq 1 100); do echo "line $i"; done
+echo "TOOL_ERROR_MESSAGE" >&2
+exit 3
+SCRIPT
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    log_file="outputs/mock_algo/mock-1.0.0/test_dataset/predict.log"
+    [[ "$output" == *"Algorithm mock_algo failed (exit 3)"* ]]
+    [[ "$output" == *"TOOL_ERROR_MESSAGE"* ]]
+    [[ "$output" != *"FIRST_LINE"* ]]
+    [[ "$output" == *"Full tool output: ./$log_file"* ]]
+    grep -q "FIRST_LINE" "$log_file"
+    grep -q "TOOL_ERROR_MESSAGE" "$log_file"
+}
+
+# Test 26: Script passes --quiet to evaluation with -q
+@test "integration: run.sh -q passes --quiet to evaluation" {
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run.sh sample_data/test_dataset mock_algo -q
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 27: Script evaluates only the algorithm version it ran
+@test "integration: run.sh passes --algorithms with its algorithm version to evaluation" {
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run.sh sample_data/test_dataset mock_algo
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.evaluate .* --algorithms mock_algo:mock-1.0.0" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 28: run_split.sh runs each part and merges outputs into the output layout
+@test "integration: run_split.sh runs each part and merges outputs" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"for test_dataset part 0:"* ]]
+    [[ "$output" == *"for test_dataset part 1:"* ]]
+    # one header + 2 rows from each of the 2 parts
+    [ "$(wc -l < "$output_dir/output.csv")" -eq 5 ]
+    [ "$(grep -c "scan,sequence,score" "$output_dir/output.csv")" -eq 1 ]
+    [ "$(grep -c "^real" "$output_dir/time.log")" -eq 1 ]
+    [ ! -e "outputs/test_dataset_part_0" ]
+    [ ! -e "times/test_dataset_part_0" ]
+    [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+}
+
+# Test 29: run_split.sh with more parts than files
+@test "integration: run_split.sh with more parts than files" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 5
+
+    [ "$status" -eq 0 ]
+    [[ "$output" != *"part 2:"* ]]
+    [[ "$output" != *"No such file"* ]]
+    [[ "$output" != *"syntax error"* ]]
+    [ "$(wc -l < outputs/mock_algo/mock-1.0.0/test_dataset/output.csv)" -eq 5 ]
+}
+
+# Test 30: run_split.sh does not merge after a failed part; a rerun only runs missing parts
+@test "integration: run_split.sh does not merge after a failed part and reruns only missing parts" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # First call succeeds, second call fails
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+if [ -e part_done ]; then exit 1; fi
+touch part_done
+echo "scan,sequence,score" > outputs.csv
+echo "1,PEPTIDE,0.95" >> outputs.csv
+SCRIPT
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"part 1 produced no output, not merging"* ]]
+    [ ! -e "$output_dir/output.csv" ]
+    [ -e "outputs/test_dataset_part_0/mock_algo_output.csv" ]
+    [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
+
+    # Rerun with a working algorithm: part 0 is skipped, part 1 runs, outputs are merged
+    rm algorithms/mock_algo/part_done
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping test_dataset part 0"* ]]
+    [[ "$output" == *"for test_dataset part 1:"* ]]
+    [ "$(wc -l < "$output_dir/output.csv")" -eq 3 ]
+}
+
+# Test 31: run_split.sh evaluates only its algorithm version
+@test "integration: run_split.sh passes --algorithms with its algorithm version to evaluation" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 0 ]
+    grep -q "evaluation.augment_predictions --output_dir ./outputs/mock_algo/mock-1.0.0/test_dataset" "$TEST_DIR/apptainer_calls.log"
+    grep -q "evaluation.evaluate .* --algorithms mock_algo:mock-1.0.0" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 32: run_split.sh rejects unknown algorithms and 'base'
+@test "integration: run_split.sh rejects unknown algorithm and base" {
+    cp "$ORIG_DIR/run_split.sh" .
+
+    run bash run_split.sh sample_data/test_dataset no_such_algo 2
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"'no_such_algo' not found"* ]]
+
+    run bash run_split.sh sample_data/test_dataset base 2
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"not an algorithm"* ]]
+}
+
+# Test 33: run.sh and run_split.sh mount the dataset dir in augmentation and evaluation containers
+@test "integration: augmentation and evaluation mount the dataset dir" {
+    cp "$ORIG_DIR/run_split.sh" .
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+    abs_dset_dir="$(realpath sample_data/test_dataset)"
+
+    for script in "run.sh" "run_split.sh"; do
+        rm -rf outputs "$TEST_DIR/apptainer_calls.log"
+        if [ "$script" = "run.sh" ]; then
+            run bash run.sh sample_data/test_dataset mock_algo
+        else
+            run bash run_split.sh sample_data/test_dataset mock_algo 2
+        fi
+        [ "$status" -eq 0 ]
+        [ "$(grep -c -- "-B $abs_dset_dir evaluation.sif" "$TEST_DIR/apptainer_calls.log")" -eq 2 ]
+    done
+}
+
+# Helper for run_array.sh tests: working algorithms (output with SA and pred_RT columns, as after augmentation,
+# which the mock apptainer does not run), a failing algorithm and one without augmentation columns;
+# apptainer calls recorded
+setup_run_array() {
+    cp "$ORIG_DIR/run_array.sh" .
+    cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
+echo "spectrum_id,sequence,score,aa_scores,SA,pred_RT" > outputs.csv
+echo 'test_1:0,PEPTIDE,0.95,"0.95,0.95",0.8,10.0' >> outputs.csv
+SCRIPT
+    cp -r algorithms/mock_algo algorithms/noaug_algo
+    printf 'echo "spectrum_id,sequence,score,aa_scores" > outputs.csv\necho "test_1:0,PEPTIDE,0.95,0.95" >> outputs.csv\n' \
+        > algorithms/noaug_algo/make_predictions.sh
+    cp -r algorithms/mock_algo algorithms/mock_algo2
+    sed -i 's/mock-1.0.0/mock2-1.0.0/' algorithms/mock_algo2/versions.log
+    cp -r algorithms/mock_algo algorithms/fail_algo
+    printf 'echo "tool crashed" >&2\nexit 1\n' > algorithms/fail_algo/make_predictions.sh
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+}
+
+# Test 34: run_array.sh reports per dataset/algorithm status and evaluates each dataset once
+@test "integration: run_array.sh runs all pairs, reports status, evaluates once per dataset" {
+    setup_run_array
+
+    run bash run_array.sh -d sample_data/test_dataset -a mock_algo -a mock_algo2 -a fail_algo -a noaug_algo -a no_such_algo
+
+    [ "$status" -eq 1 ]
+    summary=$(ls logs/run_array_*/summary.tsv)
+    grep -q "^test_dataset	mock_algo	OK	new output	" "$summary"
+    grep -q "^test_dataset	mock_algo2	OK	new output	" "$summary"
+    grep -q "^test_dataset	fail_algo	FAILED	algorithm failed	" "$summary"
+    grep -q "^test_dataset	noaug_algo	FAILED	augmentation failed	" "$summary"
+    grep -q "^test_dataset	no_such_algo	FAILED	unknown algorithm	-$" "$summary"
+    grep -q "^test_dataset	(evaluation)	OK	evaluated: mock_algo:mock-1.0.0 mock_algo2:mock2-1.0.0	" "$summary"
+    # run.sh is called without evaluation, evaluation runs once for the dataset
+    [ "$(grep -c "evaluation.evaluate" "$TEST_DIR/apptainer_calls.log")" -eq 1 ]
+    grep -q "evaluation.evaluate ./outputs/ sample_data/test_dataset --algorithms mock_algo:mock-1.0.0 mock_algo2:mock2-1.0.0" "$TEST_DIR/apptainer_calls.log"
+    # per pair logs
+    grep -q "tool crashed" logs/run_array_*/test_dataset__fail_algo.log
+    [[ "$output" == *"SUMMARY"* ]]
+}
+
+# Test 35: run_array.sh reports reused outputs on a rerun, -q is passed on
+@test "integration: run_array.sh reuses existing output and passes -q" {
+    setup_run_array
+    bash run_array.sh -d sample_data/test_dataset -a mock_algo
+    rm -rf logs "$TEST_DIR/apptainer_calls.log"
+
+    run bash run_array.sh -q -d sample_data/test_dataset -a mock_algo
+
+    [ "$status" -eq 0 ]
+    grep -q "^test_dataset	mock_algo	OK	existing output reused	" logs/run_array_*/summary.tsv
+    grep -q "Quiet mode (show tool output only on failure): true" logs/run_array_*/test_dataset__mock_algo.log
+    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
+}
+
+# Test 36: run_array.sh requires datasets, defaults to algorithms with a container.def
+@test "integration: run_array.sh requires datasets and defaults to algorithms with container.def" {
+    setup_run_array
+    run bash run_array.sh -a mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"at least one dataset is required"* ]]
+
+    touch algorithms/mock_algo/container.def algorithms/mock_algo2/container.def
+    run bash run_array.sh -d sample_data/test_dataset
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Algorithms: mock_algo mock_algo2"* ]]
+}
+
+# Test 37: run_test.sh runs the algorithm on the sample dataset and validates the output format
+@test "integration: run_test.sh runs on sample dataset with .env and reports validation" {
+    cp "$ORIG_DIR/run_test.sh" .
+    mkdir -p sample_data/9_species_human/mgf
+    cp sample_data/test_dataset/mgf/spectrum1.mgf sample_data/9_species_human/mgf/
+    # Wrap the mock apptainer to record its arguments
+    cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
+#!/bin/bash
+echo "\$@" >> "$TEST_DIR/apptainer_calls.log"
+exec "$MOCK_ENV_DIR/bin/apptainer" "\$@"
+SCRIPT
+    chmod +x "$TEST_DIR/bin/apptainer"
+
+    run bash run_test.sh mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"OUTPUT FORMAT VALIDATED."* ]]
+    grep -q -- "-B sample_data/9_species_human/mgf:/algo/9_species_human --env-file .env .*make_predictions.sh 9_species_human" "$TEST_DIR/apptainer_calls.log"
+    grep -q "python test_output_format.py" "$TEST_DIR/apptainer_calls.log"
+    [ ! -e "algorithms/mock_algo/test_overlay.img" ]
+    [ ! -e "test_outputs" ]
+}
+
+# Test 38: run.sh skips an algorithm without container, unless its output already exists
+@test "integration: run.sh skips an algorithm without container" {
+    output_dir="outputs/mock_algo/mock-1.0.0/test_dataset"
+    rm algorithms/mock_algo/container.sif
+
+    run bash run.sh sample_data/test_dataset mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Skipping mock_algo: container algorithms/mock_algo/container.sif not found."* ]]
+    [[ "$output" != *"RUN ALGORITHM"* ]]
+    [ ! -e "algorithms/mock_algo/overlay_test_dataset.img" ]
+
+    # Existing output: no container needed (augmentation and evaluation only)
+    mkdir -p "$output_dir"
+    echo "spectrum_id,sequence,score" > "$output_dir/output.csv"
+    run bash run.sh sample_data/test_dataset mock_algo
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Skipping running algorithm"* ]]
+
+    # Recalculation needs the container: existing output is kept
+    run bash run.sh -r sample_data/test_dataset mock_algo
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"container algorithms/mock_algo/container.sif not found"* ]]
+    [ -e "$output_dir/output.csv" ]
+}
+
+# Test 39: run_split.sh skips an algorithm without container
+@test "integration: run_split.sh skips an algorithm without container" {
+    cp "$ORIG_DIR/run_split.sh" .
+    rm algorithms/mock_algo/container.sif
+
+    run bash run_split.sh sample_data/test_dataset mock_algo 2
+
+    [ "$status" -eq 1 ]
+    [[ "$output" == *"Skipping mock_algo: container algorithms/mock_algo/container.sif not found."* ]]
+    [ ! -e "outputs/test_dataset_part_0" ]
+}
+
+# Test 40: run_array.sh reports algorithms without container as SKIPPED (not a failure)
+@test "integration: run_array.sh reports algorithms without container as skipped" {
+    setup_run_array
+    rm algorithms/mock_algo2/container.sif
+
+    run bash run_array.sh -d sample_data/test_dataset -a mock_algo -a mock_algo2
+
+    [ "$status" -eq 0 ]
+    summary=$(ls logs/run_array_*/summary.tsv)
+    grep -q "^test_dataset	mock_algo	OK	new output	" "$summary"
+    grep -q "^test_dataset	mock_algo2	SKIPPED	no container	-$" "$summary"
+    grep -q "^test_dataset	(evaluation)	OK	evaluated: mock_algo:mock-1.0.0	" "$summary"
+}
+
+# Test 41: run_test.sh -k keeps the test outputs and overlay
+@test "integration: run_test.sh -k keeps test outputs" {
+    cp "$ORIG_DIR/run_test.sh" .
+    mkdir -p sample_data/9_species_human/mgf
+    cp sample_data/test_dataset/mgf/spectrum1.mgf sample_data/9_species_human/mgf/
+
+    run bash run_test.sh -k mock_algo
+
+    [ "$status" -eq 0 ]
+    [[ "$output" == *"Kept test outputs"* ]]
+    [ -e "test_outputs/test_output.csv" ]
+    [ -e "algorithms/mock_algo/test_overlay.img" ]
 }
