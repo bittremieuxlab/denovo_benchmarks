@@ -1,0 +1,12 @@
+# 忽略所有 .log 文件及文件夹
+*log
+*log/
+
+# 忽略所有 __pycache__ 文件夹及其内容
+__pycache__/
+
+# 忽略所有 .ipynb_checkpoints 文件夹及其内容
+.ipynb_checkpoints/
+
+# 忽略所有 save 文件夹及其内容
+save/

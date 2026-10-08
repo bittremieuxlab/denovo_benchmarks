@@ -1,0 +1,11 @@
+hidden_size: 768
+
+encoder:
+    rel_size: 12
+    key_size: 64
+    rel_feature_num: 2
+    num_layers: 6
+
+decoder:
+    num_heads: 12
+    num_layers: 6
