@@ -143,7 +143,7 @@ def validate_token_scores(scores: str, sequence: str) -> bool:
 
 def load_predictions(output_path, sequences_true):
     """Load de novo predictions and combine them with ground truth sequences."""
-    use_cols = ["sequence", "score", "aa_scores", "spectrum_id", "pred_RT", "SA"]
+    use_cols = ["sequence", "score", "aa_scores", "spectrum_id", "pred_RT", "SA", "proteome_match"]
     
     output_data = pd.read_csv(output_path)
     output_data = pd.merge(
