@@ -88,7 +88,7 @@ Building containers and running the benchmark locally requires the following:
 
     - Python 3 with the packages in `requirements.txt` ([Streamlit](https://docs.streamlit.io/get-started/installation), pandas, plotly).
 
-    The dashboard was checked with Python 3.11, Streamlit 1.65, pandas 3.0 and plotly 6.5.2.
+    The dashboard was checked with Python 3.12 and the versions pinned in `requirements.txt` (Streamlit 1.61.1, pandas 3.0.5, plotly 6.5.2).
 
     All other dependencies of the algorithms and of the evaluation (with their versions) are installed inside their Apptainer containers 
     (see `algorithms/<algorithm>/container.def` and `evaluation.def`). The evaluation needs internet access to the [Koina](https://koina.wilhelmlab.org) prediction service.
