@@ -482,8 +482,7 @@ SCRIPT
     [ "$(wc -l < "$output_dir/output.csv")" -eq 5 ]
     [ "$(grep -c "scan,sequence,score" "$output_dir/output.csv")" -eq 1 ]
     [ "$(grep -c "^real" "$output_dir/time.log")" -eq 1 ]
-    [ ! -e "outputs/test_dataset_part_0" ]
-    [ ! -e "times/test_dataset_part_0" ]
+    [ ! -e "$output_dir/part_0" ]
     [ ! -f "algorithms/mock_algo/overlay_test_dataset.img" ]
 }
 
@@ -517,7 +516,7 @@ SCRIPT
     [ "$status" -eq 1 ]
     [[ "$output" == *"part 1 produced no output, not merging"* ]]
     [ ! -e "$output_dir/output.csv" ]
-    [ -e "outputs/test_dataset_part_0/mock_algo_output.csv" ]
+    [ -e "$output_dir/part_0/output.csv" ]
     [ -f "algorithms/mock_algo/overlay_test_dataset.img" ]
 
     # Rerun with a working algorithm: part 0 is skipped, part 1 runs, outputs are merged
@@ -715,7 +714,7 @@ SCRIPT
 
     [ "$status" -eq 1 ]
     [[ "$output" == *"Skipping mock_algo: container algorithms/mock_algo/container.sif not found."* ]]
-    [ ! -e "outputs/test_dataset_part_0" ]
+    [ ! -e "outputs/mock_algo/mock-1.0.0/test_dataset/part_0" ]
 }
 
 # Test 40: run_array.sh reports algorithms without container as SKIPPED (not a failure)

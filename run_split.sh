@@ -4,7 +4,6 @@ algorithm_name="$2"
 split_n="$3"
 spectra_dir="$dset_dir/mgf"
 output_root_dir="./outputs"
-time_log_root_dir="./times"
 overlay_size=4096
 
 # Check if algorithm exists and is not "base"
@@ -22,6 +21,7 @@ fi
 dset_name=$(basename "$dset_dir")
 # get latest container version
 algorithm_version=$(grep -m 1 "container_version:" "algorithms/${algorithm_name}/versions.log" | awk -F'"' '{print $2}')
+output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
 
 echo "Running benchmark with $algorithm_name on dataset $dset_name."
 # List input files
@@ -48,15 +48,13 @@ for part_idx in $(seq 0 $((split_n-1))); do
     end=$(( start + part_size - 1 ))
     (( start >= total_files )) && break        # nothing left
 		
-	# For each part, create output_dir and time_log_dir
-	part_output_dir="$output_root_dir/${dset_name}_part_${part_idx}"
-    part_time_log_dir="$time_log_root_dir/${dset_name}_part_${part_idx}"
+	# For each part, create part_output_dir (inside output_dir)
+	part_output_dir="$output_dir/part_${part_idx}"
     # Create the output directory if it doesn't exist
-    mkdir -p "$part_output_dir" "$part_time_log_dir"
+    mkdir -p "$part_output_dir"
     
-    # get algorithm files path(?), names for output files for this algorithm_name(!)
-    time_log_file="$part_time_log_dir/${algorithm_name}_time.log"
-    output_file="$part_output_dir/${algorithm_name}_output.csv"
+    time_log_file="$part_output_dir/time.log"
+    output_file="$part_output_dir/output.csv"
     echo "Output file: $output_file"
     
     # Check if the output file does not exist
@@ -95,7 +93,7 @@ for part_idx in $(seq 0 $((split_n-1))); do
             -B "${part_output_dir}":/algo/outputs \
             --env-file .env \
             "algorithms/${algorithm_name}/container.sif" \
-            bash -c "cp /algo/outputs.csv /algo/outputs/${algorithm_name}_output.csv"
+            bash -c "cp /algo/outputs.csv /algo/outputs/output.csv"
         
         # Clean up the temporary directory
         rm -rf "$tmp_part_dir"
@@ -114,7 +112,7 @@ done
 
 # Stop if any part has no output
 for part_idx in $(seq 0 $((n_parts-1))); do
-    if [ ! -e "$output_root_dir/${dset_name}_part_${part_idx}/${algorithm_name}_output.csv" ]; then
+    if [ ! -e "$output_dir/part_${part_idx}/output.csv" ]; then
         echo "Error: part ${part_idx} produced no output, not merging." >&2
         exit 1
     fi
@@ -122,24 +120,20 @@ done
 
 echo "All parts complete - merging outputs."
 
-output_dir="$output_root_dir/$algorithm_name/$algorithm_version/$dset_name"
-# Create the output directory if it doesn't exist
-mkdir -p "$output_dir"
-
 merged_csv="$output_dir/output.csv"
 merged_time="$output_dir/time.log"
 
 # Merge output CSVs (keep header from part 0, then append the rest)
-first_part="$output_root_dir/${dset_name}_part_0/${algorithm_name}_output.csv"
+first_part="$output_dir/part_0/output.csv"
 head -n 1 "$first_part" > "$merged_csv"
 for part_idx in $(seq 0 $((n_parts-1))); do
-    tail -n +2 "$output_root_dir/${dset_name}_part_${part_idx}/${algorithm_name}_output.csv" >> "$merged_csv"
+    tail -n +2 "$output_dir/part_${part_idx}/output.csv" >> "$merged_csv"
 done
 
 # Sum logged inference times
 total_sec=0
 for part_idx in $(seq 0 $((n_parts-1))); do
-    real_line=$(grep '^real' "$time_log_root_dir/${dset_name}_part_${part_idx}/${algorithm_name}_time.log")
+    real_line=$(grep '^real' "$output_dir/part_${part_idx}/time.log")
     if [[ $real_line =~ ([0-9]+)m([0-9]+\.[0-9]+)s ]]; then
         mins=${BASH_REMATCH[1]} ; secs=${BASH_REMATCH[2]}
         part_sec=$(awk "BEGIN {print $mins*60+$secs}")
@@ -153,8 +147,7 @@ printf 'real %.3fs\n' "$total_sec" > "$merged_time"
 # clean per-part artefacts
 echo "Removing per-part folders and overlays"
 for part_idx in $(seq 0 $((n_parts-1))); do
-    rm -rf "$output_root_dir/${dset_name}_part_${part_idx}" \
-           "$time_log_root_dir/${dset_name}_part_${part_idx}"
+    rm -rf "$output_dir/part_${part_idx}"
 done
 rm -f "algorithms/${algorithm_name}/overlay_${dset_name}.img"
 
