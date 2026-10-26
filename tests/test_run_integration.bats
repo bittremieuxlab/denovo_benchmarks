@@ -436,8 +436,8 @@ SCRIPT
     grep -q "TOOL_ERROR_MESSAGE" "$log_file"
 }
 
-# Test 26: Script passes --quiet to evaluation with -q
-@test "integration: run.sh -q passes --quiet to evaluation" {
+# Test 26: Script passes --quiet to augmentation (MMseqs2) with -q
+@test "integration: run.sh -q passes --quiet to augmentation" {
     # Wrap the mock apptainer to record its arguments
     cat > "$TEST_DIR/bin/apptainer" <<SCRIPT
 #!/bin/bash
@@ -449,7 +449,7 @@ SCRIPT
     run bash run.sh sample_data/test_dataset mock_algo -q
 
     [ "$status" -eq 0 ]
-    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
+    grep -q "evaluation.augment_predictions .* --quiet" "$TEST_DIR/apptainer_calls.log"
 }
 
 # Test 27: Script evaluates only the algorithm version it ran
@@ -585,14 +585,14 @@ SCRIPT
     done
 }
 
-# Helper for run_array.sh tests: working algorithms (output with SA and pred_RT columns, as after augmentation,
+# Helper for run_array.sh tests: working algorithms (output with SA, pred_RT and proteome_match columns, as after augmentation,
 # which the mock apptainer does not run), a failing algorithm and one without augmentation columns;
 # apptainer calls recorded
 setup_run_array() {
     cp "$ORIG_DIR/run_array.sh" .
     cat > algorithms/mock_algo/make_predictions.sh <<'SCRIPT'
-echo "spectrum_id,sequence,score,aa_scores,SA,pred_RT" > outputs.csv
-echo 'test_1:0,PEPTIDE,0.95,"0.95,0.95",0.8,10.0' >> outputs.csv
+echo "spectrum_id,sequence,score,aa_scores,SA,pred_RT,proteome_match" > outputs.csv
+echo 'test_1:0,PEPTIDE,0.95,"0.95,0.95",0.8,10.0,True' >> outputs.csv
 SCRIPT
     cp -r algorithms/mock_algo algorithms/noaug_algo
     printf 'echo "spectrum_id,sequence,score,aa_scores" > outputs.csv\necho "test_1:0,PEPTIDE,0.95,0.95" >> outputs.csv\n' \
@@ -642,7 +642,7 @@ SCRIPT
     [ "$status" -eq 0 ]
     grep -q "^test_dataset	mock_algo	OK	existing output reused	" logs/run_array_*/summary.tsv
     grep -q "Quiet mode (show tool output only on failure): true" logs/run_array_*/test_dataset__mock_algo.log
-    grep -q "evaluation.evaluate .* --quiet" "$TEST_DIR/apptainer_calls.log"
+    grep -q "evaluation.augment_predictions .* --quiet" "$TEST_DIR/apptainer_calls.log"
 }
 
 # Test 36: run_array.sh requires datasets, defaults to algorithms with a container.def

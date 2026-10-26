@@ -139,8 +139,12 @@ fi
 echo "Output file: $output_file"
 # Augment algorithm predictions with RT and SA (if not already present)
 echo "AUGMENT PREDICTIONS"
+augment_args=""
+if [ "$quiet" = true ]; then
+    augment_args="--quiet"
+fi
 apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluation.sif" \
-    bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir}"
+    bash -c "python -m evaluation.augment_predictions --output_dir ${output_dir} --data_dir ${dset_dir} ${augment_args}"
 # TODO: fix augment_predictions semantics, only pass necessary information
 
 # 3. Evaluate predictions
@@ -148,12 +152,8 @@ apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluati
 # TODO: add results_dir explicit definition
 if [ "$evaluate" = true ]; then
     echo "EVALUATE PREDICTIONS"
-    eval_args="--algorithms ${algorithm_name}:${algorithm_version}"
-    if [ "$quiet" = true ]; then
-        eval_args="$eval_args --quiet"
-    fi
     apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluation.sif" \
-        bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} ${eval_args}"
+        bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --algorithms ${algorithm_name}:${algorithm_version}"
     # apptainer exec --fakeroot --env-file .env "evaluation.sif" \
     #     bash -c "python -m evaluation.evaluate ${output_root_dir}/ ${dset_dir} --skip_proteome_matches"
 fi

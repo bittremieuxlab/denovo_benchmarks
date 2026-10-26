@@ -5,13 +5,12 @@
 datasets=()
 algorithms=()
 run_args=()
-eval_args=""
 recalculate=false
 while [ $# -gt 0 ]; do
     case "$1" in
         -d) datasets+=("$2"); shift ;;
         -a) algorithms+=("$2"); shift ;;
-        -q) run_args+=(-q); eval_args="--quiet" ;;
+        -q) run_args+=(-q) ;;
         -r) run_args+=(-r); recalculate=true ;;
         *) echo "Error: invalid argument $1" >&2; exit 1 ;;
     esac
@@ -61,11 +60,12 @@ for dset_dir in "${datasets[@]}"; do
             echo "RUN $algorithm_name on $dset_name"
             bash run.sh "${run_args[@]}" --no-eval "$dset_dir" "$algorithm_name" > "$log_file" 2>&1
 
-            # Status from the output file: missing -> algorithm failed, no SA/pred_RT columns -> augmentation failed
+            # Status from the output file: missing -> algorithm failed,
+            # no SA/pred_RT/proteome_match columns -> augmentation failed
             header=",$(head -n 1 "$output_file" 2>/dev/null),"
             if [ ! -s "$output_file" ]; then
                 status="FAILED"; details="algorithm failed"
-            elif [[ "$header" != *",SA,"* || "$header" != *",pred_RT,"* ]]; then
+            elif [[ "$header" != *",SA,"* || "$header" != *",pred_RT,"* || "$header" != *",proteome_match,"* ]]; then
                 status="FAILED"; details="augmentation failed"
             else
                 status="OK"
@@ -84,7 +84,7 @@ for dset_dir in "${datasets[@]}"; do
     else
         echo "EVALUATE $dset_name:$evaluate_algorithms"
         apptainer exec --fakeroot --env-file .env -B "$(realpath "$dset_dir")" "evaluation.sif" \
-            bash -c "python -m evaluation.evaluate ./outputs/ ${dset_dir} --algorithms${evaluate_algorithms} ${eval_args}" \
+            bash -c "python -m evaluation.evaluate ./outputs/ ${dset_dir} --algorithms${evaluate_algorithms}" \
             > "$log_file" 2>&1
         eval_status=$?
         if [ $eval_status -eq 0 ]; then
