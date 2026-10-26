@@ -12,6 +12,7 @@ From: continuumio/miniconda3:latest
     algorithms/base /algo/base
 
 %post -c /bin/bash
+    set -e
     # Initialize conda
     conda init
     . /opt/conda/etc/profile.d/conda.sh
@@ -33,7 +34,7 @@ From: continuumio/miniconda3:latest
     export PIP_CONSTRAINT=/tmp/constraints.txt
 
     # Install gcc and g++ compilers
-    conda install -c conda-forge gcc cxx-compiler -y
+    conda install -c conda-forge gcc=11 gxx=11 -y
     
 
     # Clone and install ctcdecode
@@ -48,7 +49,7 @@ From: continuumio/miniconda3:latest
     pip install cupy-cuda12x
     # pip install cupy-cuda13x
 
-    pip install gdown
+    pip install "gdown<6"
 
     gdown --fuzzy "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
     # Make prediction script executable (assuming you have a prediction script)

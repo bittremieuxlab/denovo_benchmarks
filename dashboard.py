@@ -3,7 +3,6 @@ import ast
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
-from datasets_info import DATASETS
 
 
 RESULTS_DIR = "results"
@@ -173,9 +172,6 @@ with tab1:
         for dataset_name in selected_datasets:
             st.divider()
             st.subheader(dataset_name)
-            
-            if dataset_name in DATASETS:
-                st.caption(DATASETS[dataset_name])
             
             # Load one metric to get algorithm/version info
             sample_data = load_plot_data(dataset_name, "peptide_precision")

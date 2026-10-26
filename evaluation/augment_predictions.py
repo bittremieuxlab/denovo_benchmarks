@@ -43,6 +43,11 @@ parser.add_argument(
     help="Force re-computation even if pred_RT and SA already exist in the output file.",
     action="store_true",
 )
+parser.add_argument(
+    "--quiet",
+    help="Hide MMseqs2 output unless an MMseqs2 command fails.",
+    action="store_true",
+)
 args = parser.parse_args()
 
 
@@ -179,6 +184,7 @@ if not ("proteome_match" in output_data.columns) or args.force:
         search_result_path,
         tmp_files_dir,
         args=MMSEQS2_ARGS,
+        quiet=args.quiet,
     )
     # Map matches back to original de novo sequences
     matched_sequences = search_df["qseq"].tolist() 

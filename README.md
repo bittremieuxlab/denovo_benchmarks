@@ -5,15 +5,15 @@
 Make a pull request to add your algorithm to the benchmarking system.
 
 Add your algorithm in the `denovo_benchmarks/algorithms/algorithm_name` folder by providing  
-`container.def`, `make_predictions.sh`, `input_mapper.py`, `output_mapper.py` files.  
+`container.def`, `make_predictions.sh`, `input_mapper.py`, `output_mapper.py` and `versions.log` files.  
 Detailed files descriptions are given below.  
 
 Templates for each file implementation can be found in the 
-`algorithms/base/` [folder](https://github.com/PominovaMS/denovo_benchmarks/tree/main/algorithms/base).  
+`algorithms/base/` [folder](https://github.com/bittremieuxlab/denovo_benchmarks/tree/main/algorithms/base).  
 It also includes the `InputMapperBase` and `OutputMapperBase` base classes for implementing input and output mappers.  
 For examples, you can check 
-[Casanovo](https://github.com/PominovaMS/denovo_benchmarks/tree/main/algorithms/casanovo) 
-and [DeepNovo](https://github.com/PominovaMS/denovo_benchmarks/tree/main/algorithms/deepnovo) implementations. 
+[Casanovo](https://github.com/bittremieuxlab/denovo_benchmarks/tree/main/algorithms/casanovo) 
+and [DeepNovo](https://github.com/bittremieuxlab/denovo_benchmarks/tree/main/algorithms/deepnovo) implementations. 
 
 
 - **`container.def`** — definition file of the [Apptainer](https://apptainer.org/docs/user/main/definition_files.html) 
@@ -25,7 +25,8 @@ container image that creates environment and installs dependencies required for 
     **Output**: output file (in a common output format) containing predictions for all spectra in the dataset
 
     To configure the model for specific data properties (e.g. non-tryptic data, data from a particular instrument, etc.), please use **dataset tags**. 
-    Current set of tags can be found in the `DatasetTag` in [dataset_config.py](https://github.com/PominovaMS/denovo_benchmarks/blob/main/dataset_config.py) and includes `nontryptic`, `timstof`, `waters`, `sciex`.
+    Current set of tags can be found in the `DatasetTag` in [dataset_config.py](https://github.com/bittremieuxlab/denovo_benchmarks/blob/main/dataset_config.py) and includes `nontryptic`, `timstof`, `waters`, `sciex`.
+    The tags of each dataset are listed in `dataset_tags.tsv`, together with its reference proteome.
     Example usage can be found in `algorithms/base/make_predictions_template.sh`.
 
 - **`input_mapper.py`** — python script to convert input data 
@@ -60,6 +61,15 @@ from its original representation (**input format**) to the format expected by th
         - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma notation** with **Unimod accession codes**:  
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
 
+- **`versions.log`** — list of container versions of the algorithm, newest first. 
+The benchmark always runs the newest `container_version`, and outputs and results are stored per version. 
+A template with the required fields (`container_version`, `date`, `repo_commit`, `notes`) can be found in `algorithms/base/versions_template.log`.
+
+To check that your container runs and produces predictions in the output format, use `run_test.sh` (see [Running the benchmark](#running-the-benchmark)).
+`./run_test.sh [-k] algorithm_name` runs the algorithm on `sample_data/9_species_human` and checks its output. 
+It prints the number of valid predictions (`Predictions: N rows, M predicted sequences, K valid.`) and warns about invalid ones 
+(sequence not in ProForma format, or number of `aa_scores` not matching the sequence tokens), which the evaluation counts as no prediction.
+
 
 ## System requirements
 
@@ -67,7 +77,7 @@ Building containers and running the benchmark locally requires the following:
 
 - Operating System: Linux (required for Apptainer).
 - Dependencies:
-    - [Apptainer](https://apptainer.org/docs/user/main/quick_start.html).
+    - [Apptainer](https://apptainer.org/docs/user/main/quick_start.html) (tested with version 1.4.5).
     
     Make sure the [Apptainer dependencies](https://github.com/apptainer/apptainer/blob/main/INSTALL.md) are installed. 
 
@@ -76,11 +86,19 @@ Building containers and running the benchmark locally requires the following:
     sudo apt install squashfuse gocryptfs fuse-overlayfs  
     ```
 
-    - Python 3 and [Streamlit](https://docs.streamlit.io/get-started/installation) package.
+    - Python 3 with the packages in `requirements.txt` ([Streamlit](https://docs.streamlit.io/get-started/installation), pandas, plotly).
 
-    The benchmark was tested with Python 3.11 and Streamlit 1.33.
+    The dashboard was checked with Python 3.12 and the versions pinned in `requirements.txt` (Streamlit 1.61.1, pandas 3.0.5, plotly 6.5.2).
 
-We run the tools on a high-performance computing (HPC) system using the **Suse Linux Enterprise Server** operating system, equipped with two **Intel Xeon Gold 6526Y processors**, **512 GB of RAM**, and **four NVIDIA L40S GPUs**.
+    All other dependencies of the algorithms and of the evaluation (with their versions) are installed inside their Apptainer containers 
+    (see `algorithms/<algorithm>/container.def` and `evaluation.def`). The evaluation needs internet access to the [Koina](https://koina.wilhelmlab.org) prediction service.
+
+- Hardware: an NVIDIA GPU is needed to run the algorithms. **SMSNet** needs a GPU supported by CUDA 9/10.
+
+The benchmark was tested on:
+- a high-performance computing (HPC) system with **openSUSE Leap 15.6**, **Apptainer 1.4.5** and NVIDIA driver **580.126**, 
+equipped with two **Intel Xeon Gold 6526Y processors**, **512 GB of RAM**, and **four NVIDIA L40S GPUs** (all algorithms except SMSNet, PEAKS and GraphNovo);
+- the **CalcUA** HPC cluster (University of Antwerp) with **Rocky Linux 9.8**, **Apptainer 1.5.4** and NVIDIA driver **580.178**, equipped with an **NVIDIA Tesla P100** GPU (SMSNet).
 
 The current source code does not include containerized implementations for **PEAKS** and **GraphNovo** due to their integration within the **PEAKS Studio 12** software, which is only available as a graphical user interface (GUI) tool compatible with the Windows operating system. These tools will be executed manually on a desktop computer running **Windows 11**, equipped with an **Intel Core i9 processor** and **128 GB of RAM**.
 
@@ -116,10 +134,23 @@ datasets/
     ...
 ```
 
+To run the benchmark on your own data:
+- Name the dataset folder with a unique name and put the spectra in its `mgf/` subfolder (see the input format above).
+- `labels.csv` contains two columns: 
+    - `spectrum_id` — `{filename}:{index}`, where `filename` is the name of the `.mgf` file (without extension) 
+    and `index` is the index (0-based) of the spectrum in this file;
+    - `seq` — the database search peptide, with modifications written as mass differences after the modified amino acid, 
+    e.g. `C[57.022]`, `M[15.995]` (N-terminal modifications after the first amino acid, e.g. `A[42.011]PEPTIDE`). 
+    
+    Spectra without a label are allowed.
+- Add a row for the dataset to `dataset_tags.tsv`: the folder name (`dataset` column), the reference proteome FASTA file 
+from `PROTEOMES_DIR` (`proteome` column), and `1` or `0` for each dataset tag. The algorithms and the evaluation look up the dataset by its folder name.
+
 Note that algorithm containers only get as input the `/mgf` subfolder with spectra files and **do not** have access to the `labels.csv` file. 
 Only the evaluation container accesses the `labels.csv` file to evaluate algorithm predictions.
 
-We provide a simplified demo dataset in the `sample_data/` directory for testing the benchmarking pipeline locally.
+We provide two small sample datasets (`9_species_human`, `9_species_mus_musculus`) and their reference proteomes (`proteomes/`) 
+in the `sample_data/` directory for testing the benchmarking pipeline locally.
 
 However, running the full benchmark, especially on larger spectra files, is **not recommended** on a local computer, as de novo prediction can be computationally intensive and time-consuming. Additionally, while some containerized tool versions support flexible switching between CPU and GPU devices, others strictly require GPU access and will fail to run if a compatible GPU is unavailable.
 
@@ -130,7 +161,7 @@ To run the benchmark locally:
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/PominovaMS/denovo_benchmarks.git
+    git clone https://github.com/bittremieuxlab/denovo_benchmarks.git
     cd denovo_benchmarks
     ```
 
@@ -142,7 +173,8 @@ To run the benchmark locally:
     ./build_apptainer_images.sh
     ```
 
-    This will build the apptainer images for all algorithms and the evaluation apptainer image.
+    This will build the apptainer images for all algorithms and the evaluation apptainer image. 
+    Building one container typically takes 5–15 minutes, depending on the algorithm and the network speed.
 
     If an apptainer image already exists, the script will ask if you want to rebuild it.
 
@@ -156,6 +188,11 @@ To run the benchmark locally:
     In order to configure the project environment to run the benchmark locally, you need to make a copy of the `.env.template` file and rename it to `.env`. This file contains the necessary environment variables for the project to run properly. 
     
     After renaming the file, update the file paths within the `.env` file to reflect the correct locations on your system.
+    Variables:
+    - `DATASET_TAGS_PATH` — path to `dataset_tags.tsv` (required)
+    - `PROTEOMES_DIR` — folder with the reference proteomes (required)
+    - `DATA_DIR`, `WORK_DIR`, `ROOT` — base folders used to build the paths above and by the dataset creation scripts
+    - `FRAGPIPE_DIR` — FragPipe installation, only needed for creating datasets
 
 4. **Run benchmark on a dataset**:
     <!-- Make sure the required packages are installed:
@@ -164,24 +201,65 @@ To run the benchmark locally:
     sudo apt install squashfuse gocryptfs fuse-overlayfs  
     ``` -->
 
-    Run the benchmark:
+    Run the benchmark of an algorithm on a dataset:
 
     ```bash
-    ./run.sh /path/to/dataset/dir
+    ./run.sh [-r] [-q] [--no-eval] /path/to/dataset/dir algorithm_name
     ```
     Example:
     ```bash
-    ./run.sh sample_data/9_species_human
+    ./run.sh sample_data/9_species_human casanovo
     ```
+    For this example, the script writes the Casanovo predictions for the `9_species_human` sample dataset to 
+    `outputs/casanovo/<version>/9_species_human/output.csv` (one row per predicted spectrum, with `sequence`, `score`, `aa_scores` and `spectrum_id`, 
+    and the predicted retention time `pred_RT` and spectral angle `SA` added by the augmentation step) and the run time to `time.log`, 
+    and adds the Casanovo rows to the evaluation results in `results/9_species_human/`.
 
+    Run time: on one NVIDIA L40S GPU, the algorithms process from about 4 to about 140 spectra per second 
+    (e.g. Casanovo and π-PrimeNovo about 140, DeepNovo about 45, InstaNovo about 20 spectra per second).
+
+    Options:
+    - `-r` — recalculate the algorithm output, even if it already exists
+    - `-q` — quiet mode: hide the output of the algorithm and of MMseqs2 unless they fail
+    - `--no-eval` — skip the evaluation step
+
+    The script runs the latest algorithm container version (from `algorithms/<algorithm>/versions.log`), 
+    augments the predictions and evaluates them. 
+    Outputs are stored as:
+    ```
+    outputs/<algorithm>/<version>/<dataset>/
+        output.csv   # predictions
+        time.log     # algorithm run time
+    ```
+    Evaluation results are stored in `results/<dataset>/`. Only the rows of the evaluated algorithm version 
+    are added or replaced, results of other algorithms are kept.
+
+5. **Run several datasets and algorithms**:
+
+    ```bash
+    ./run_array.sh [-r] [-q] -d /path/to/dataset1 [-d /path/to/dataset2 ...] [-a algorithm1 -a algorithm2 ...]
+    ```
+    Runs `run.sh` for every dataset and algorithm (default: all algorithms with a `container.def`), 
+    then evaluates each dataset. 
+
+6. **Run an algorithm on parts of a dataset** (e.g. for large datasets):
+
+    ```bash
+    ./run_split.sh /path/to/dataset/dir algorithm_name number_of_parts
+    ```
+    Runs the algorithm separately on parts of the dataset's `.mgf` files, merges the part outputs 
+    into `outputs/<algorithm>/<version>/<dataset>/output.csv`, then augments and evaluates them. 
+    If some part fails, outputs are not merged. A rerun only runs the missing parts.
+
+
+## Benchmark results
+
+Evaluation results are stored in `results/<dataset>/` (one plot data file per metric, one row per algorithm version) and are shown in the dashboard.
 
 ## Running Streamlit dashboard locally:
 To view the Streamlit dashboard for the benchmark locally, run:
 ```bash
-# If Streamlit is not installed
-pip install streamlit
-
+pip install -r requirements.txt
 streamlit run dashboard.py
 ```
 
-The dashboard reads the benchmark results stored in the `results/` folder.

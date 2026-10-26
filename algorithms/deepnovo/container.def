@@ -27,13 +27,20 @@ From: tensorflow/tensorflow:1.2.0-gpu
     # Download algorithm-related files
     # (source codes, weights, etc.)
     cd /algo
+    rm -rf DeepNovo
+    curl -fL https://github.com/nh2tran/DeepNovo/archive/8b0ec8321d1006770032d069d76234fc95d36af3.tar.gz | tar xz
+    mv DeepNovo-8b0ec8321d1006770032d069d76234fc95d36af3 DeepNovo
     # Fix batch size bug in deepnovo_main_modules.py
     cp deepnovo_main_modules.py DeepNovo
     # Build DeepNovo from source
     cd DeepNovo && python deepnovo_cython_setup.py build_ext --inplace && cd ..
     
     # # Download algorithm weights
-    curl -LRO ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy
+    curl -LRO --connect-timeout 60 ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy \
+        || { pip install gdown \
+            && gdown "https://drive.google.com/uc?id=1um832lwCDpBptkeeCFhzWYuK4tgRwdm_" -O knapsack.npy.zip \
+            && python -c "import zipfile; zipfile.ZipFile('knapsack.npy.zip').extractall('.')" \
+            && rm knapsack.npy.zip; }
     # # Download model checkpoint (change to use other model weights)
     pip install gdown
     gdown --folder -O train.example https://drive.google.com/drive/folders/1pAUISLTeh3HQY8aaqzmpRyBFERxUJ1Lt

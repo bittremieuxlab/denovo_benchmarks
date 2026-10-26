@@ -3,7 +3,7 @@ From: python:3.10
 
 # Define system variables to provide GPU access within the container.
 %environment
-    export LD_LIBRARY_PATH=/usr/local/cuda/lib64:$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=/usr/local/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib:/usr/local/cuda/lib64:$LD_LIBRARY_PATH
 
 %files
     # Copy algorithm-related files
@@ -16,7 +16,9 @@ From: python:3.10
     pip install --no-cache-dir numba==0.57.1
     pip install --no-cache-dir pandas==1.5.3
     pip install --no-cache-dir pyteomics==4.7.3
-    pip install --no-cache-dir tensorflow==2.14
+    pip install --no-cache-dir "tensorflow[and-cuda]==2.14"
+    pip install --no-cache-dir "nvidia-cuda-nvrtc-cu11==11.8.89"
+    ln -s libnvrtc.so.11.2 /usr/local/lib/python3.10/site-packages/nvidia/cuda_nvrtc/lib/libnvrtc.so
     pip install --no-cache-dir tensorflow_addons
 
     # Download additional weights

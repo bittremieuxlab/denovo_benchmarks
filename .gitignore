@@ -7,6 +7,7 @@ datasets/sample_data/test_*
 # Outputs
 outputs*/*
 times*/*
+logs/
 metrics.csv
 
 # Containers
