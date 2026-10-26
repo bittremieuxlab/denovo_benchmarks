@@ -3,20 +3,15 @@ ground truth labels."""
 
 import argparse
 import os
-import shutil
 import numpy as np
 import pandas as pd
-import plotly.graph_objects as go
-from functools import partial
 from sklearn.metrics import auc
 
 from . import utils
-from . import mmseqs
 from . import ground_truth_mapper
 from .results import save_results
 from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
-    FRAGMENT_MASS_TOL,
     WINDOW_SIZE,
     get_intensity_model_mods,
     get_RT_model_mods,
@@ -33,14 +28,6 @@ from .token_masses import AA_MASSES
 
 DATASET_TAGS_PATH = os.environ['DATASET_TAGS_PATH'] 
 PROTEOMES_DIR = os.environ['PROTEOMES_DIR']
-MMSEQS2_ARGS = [
-    "--seed-sub-mat VTML40.out",
-    "--comp-bias-corr 0 --mask 0",
-    "-k 5",
-    "--spaced-kmer-mode 0",
-    "--exact-kmer-matching 1",
-]
-
 
 parser = argparse.ArgumentParser()
 parser.add_argument(
@@ -73,10 +60,10 @@ parser.add_argument(
     """,
 )
 parser.add_argument(
-    "--quiet",
-    help="Hide MMseqs2 output unless an MMseqs2 command fails.",
+    "--skip_SA_RT_diff",
+    help="Skip calculation of SA and RT difference.",
     action="store_true",
-)
+) # TODO: implement skipping SA and RT difference calculation
 args = parser.parse_args()
 
 # Parse selected algorithms: {algorithm_name: algorithm_version or None (all versions)}
@@ -92,6 +79,7 @@ if args.algorithms is not None:
 dataset_name = os.path.basename(os.path.normpath(args.data_dir))
 print(f"Evaluating results for {dataset_name}.")
 print(f"Skip proteome matches metric: {args.skip_proteome_matches}.")
+print(f"Skip SA and RT difference metrics: {args.skip_SA_RT_diff}.\n")
 
 # Get dataset tags and database_path (proteome column, by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t').set_index("dataset")
@@ -105,18 +93,6 @@ print("Use prediction models:")
 print(f"- Intensity: {model_name_I}, supported PTMs: {supported_mods_I}")
 print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 
-if not args.skip_proteome_matches:
-    # Create directories for MMseqs2 proteome matches search
-    (
-        search_tmp_dir, tmp_files_dir, target_db_dir, query_db_dir, search_result_dir, search_result_path
-    ) = mmseqs.setup_mmseqs_dirs(search_tmp_dir = "./mmseqs2_tmp")
-    # create a database from a reference proteome
-    reference_proteome_path = os.path.join(PROTEOMES_DIR, database_path)
-    contam_path = os.path.join(PROTEOMES_DIR, "crap.fasta")
-    target_fasta_path = os.path.join(search_tmp_dir, "proteome.fasta")
-    mmseqs.create_target_fasta(reference_proteome_path, contam_path, target_fasta_path)
-
-
 # Load GT peptide labels
 labels_path = os.path.join(args.data_dir, "labels.csv")
 sequences_true = pd.read_csv(labels_path)
@@ -127,7 +103,6 @@ dataset_path = os.path.join(args.data_dir, "mgf")
 spectra_params = utils.extract_spectra_params(dataset_path)
 
 # Predict intensities and RT for GT peptides
-# TODO: maybe find a better name for this dataframe (true_psms is misleading?)
 true_psms = sequences_true.join(spectra_params[
     ["spectrum_id", "charge", "precursor_mass", "true_RT", "filename", "idx", "run"]
 ].set_index("spectrum_id"), on="spectrum_id")
@@ -255,7 +230,7 @@ def _append_plot_data(plot_dict, algo_name, algo_version, coverage, metric, **ex
 # coverage and metric value are stored as lists of values
 aa_precision_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": [], "auc": []}
 pep_precision_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": [], "auc": []}
-n_proteome_matches_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []} # TODO: only if not args.skip_proteome_matches?
+n_proteome_matches_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []}
 rt_diff_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []}
 sa_plot_data = {"algorithm": [], "version": [], "coverage": [], "metric": []}
 # TODO: do we want to add also denovo_rt_diff_plot_data and denovo_SA_plot_data (only denovo peptides without GT)?
@@ -330,47 +305,6 @@ for algo_name in os.listdir(args.output_root_dir):
             AA_MASSES,
         )
         aa_precision, aa_recall, pep_precision = aa_match_metrics(aa_matches_batch, n_aa_true, n_aa_pred)
-
-        if not args.skip_proteome_matches:
-            # Calculate number of proteome matches
-            # Create query sequences without any modifications and I/L indistinguishable
-            output_data.loc[sequenced_idx, "sequence_no_ptm"] = output_data.loc[sequenced_idx, "sequence"].apply(
-                partial(utils.remove_ptms, ptm_pattern='[^A-Z]')
-            )
-            output_data.loc[sequenced_idx, "sequence_query"] = output_data.loc[sequenced_idx, "sequence_no_ptm"].apply(
-                mmseqs.isoleucine_to_leucine
-            )
-            print(
-                output_data["sequence"].value_counts().size, 
-                output_data["sequence_no_ptm"].value_counts().size,
-                output_data["sequence_query"].value_counts().size
-            )
-            # Write the list of unique sequences to the query database
-            unique_sequences = output_data["sequence_query"].unique().tolist()
-            query_fasta_path = os.path.join(search_tmp_dir, "denovo_predicted_peptides.fasta")
-            mmseqs.create_query_fasta(unique_sequences, query_fasta_path)
-            # Run mmseqs search
-            search_df = mmseqs.run_mmseqs(
-                target_fasta_path,
-                query_fasta_path,
-                target_db_dir,
-                query_db_dir,
-                search_result_dir,
-                search_result_path,
-                tmp_files_dir,
-                args=MMSEQS2_ARGS,
-                quiet=args.quiet,
-            )
-            # Map matches back to original de novo sequences
-            matched_sequences = search_df["qseq"].tolist() 
-            output_data["proteome_match"] = False
-            output_data.loc[sequenced_idx, "proteome_match"] = output_data.loc[sequenced_idx, "sequence_query"].isin(matched_sequences)
-            n_proteome_matches = output_data["proteome_match"].sum()
-
-        # [Debug] Check number of GT peptide matches
-        pep_matches = np.array([aa_match[1] for aa_match in aa_matches_batch])
-        output_data["pep_match"] = False
-        output_data.loc[labeled_idx, "pep_match"] = pep_matches
         
         # Collect metrics
         output_metrics[full_algo_name] = {
@@ -379,7 +313,10 @@ for algo_name in os.listdir(args.output_root_dir):
             "AA precision": aa_precision,
             "AA recall": aa_recall,
             "Pep precision": pep_precision,
-            "N proteome matches": n_proteome_matches if not args.skip_proteome_matches else None,
+            "N proteome matches": (
+                output_data["proteome_match"][sequenced_idx].sum() 
+                if not args.skip_proteome_matches else None
+            ),
         }
 
         # Collect plotting data
@@ -405,13 +342,13 @@ for algo_name in os.listdir(args.output_root_dir):
 
         # Proteome matches vs number of predictions curve
         if not args.skip_proteome_matches:
-            prot_matches = output_data["proteome_match"][sequenced_idx].values
-            n_matches = np.cumsum(prot_matches)
+            proteome_matches = output_data["proteome_match"][sequenced_idx].values
+            n_proteome_matches = np.cumsum(proteome_matches)
             coverage = np.arange(1, sequenced_idx.sum() + 1) / n_spectra
-            coverage, n_matches = _downsample_curve(coverage, n_matches)
+            coverage, n_proteome_matches = _downsample_curve(coverage, n_proteome_matches)
             _append_plot_data(
                 n_proteome_matches_plot_data, algo_name, algo_version, 
-                coverage.tolist(), n_matches.tolist()
+                coverage.tolist(), n_proteome_matches.tolist()
             )
 
         # Peptide precision-coverage curve
@@ -438,26 +375,17 @@ for algo_name in os.listdir(args.output_root_dir):
             auc=auc(coverage, precision) if len(coverage) > 0 else 0
         )
         
-        if not args.skip_proteome_matches:
-            # [Debug] display number of peptide matches & proteome matches
-            print("DEBUG: N GT peptide matches:", output_data["pep_match"].sum())
-            print("DEBUG: N proteome matches:", n_proteome_matches)
-            idx = output_data["pep_match"] & ~output_data["proteome_match"]
-            print("DEBUG: GT peptide matches w/o proteome match:", idx.sum())
-            idx = ~output_data["pep_match"] & output_data["proteome_match"]
-            print("DEBUG: Proteome matches w/o GT peptide match:", idx.sum())
-        
         print("\n", "=" * 100, "\n")
 
 # Database search baseline n_proteome_matches plot
 if not args.skip_proteome_matches:
-    gt_n_prot_matches = len(true_psms) # total number of database search annotations
+    gt_n_proteome_matches = len(true_psms) # total number of database search annotations
     _append_plot_data(
         n_proteome_matches_plot_data, 
         algo_name="database search", 
         algo_version="", # no version for database search 
         coverage=[0., 1.], # full coverage 
-        metric=[gt_n_prot_matches, gt_n_prot_matches],
+        metric=[gt_n_proteome_matches, gt_n_proteome_matches],
     )
     # FIXME: coverage=[0., 1.] - full coverage, line crosses the entire plot, 
     # and doesn't reflect the real number of DB annotations.
@@ -506,8 +434,3 @@ save_results(sa_plot_data, os.path.join(dataset_results_dir, "SA_plot_data.csv")
 
 output_metrics = pd.DataFrame(output_metrics).T
 save_results(output_metrics, os.path.join(dataset_results_dir, "metrics.csv"))
-
-
-if not args.skip_proteome_matches:
-    # Clean tmp folders
-    shutil.rmtree(search_tmp_dir)
