@@ -1,0 +1,31 @@
+services:
+  denovo-benchmarks-streamlit-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bittremieuxlab/denovo-benchmarks-streamlit-app:latest
+    restart: unless-stopped
+
+    # No host port is published: the reverse proxy reaches the container over
+    # the shared bittremieuxlab-public network.
+    expose:
+      - "8501"
+
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+    environment:
+      STREAMLIT_SERVER_PORT: 8501
+      STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+      STREAMLIT_SERVER_HEADLESS: "true"
+      TZ: Europe/Brussels
+
+    networks:
+      - bittremieuxlab-public
+
+networks:
+  bittremieuxlab-public:
+    external: true

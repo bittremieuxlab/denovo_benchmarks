@@ -1,0 +1,13 @@
+# Dependencies for the Streamlit dashboard (dashboard.py) only.
+#
+# The root requirements.txt targets the benchmarking pipeline. On Streamlit
+# Community Cloud, streamlit was installed automatically and pandas came in as
+# one of its dependencies, so neither needed to be listed. A container image
+# gets no such treatment, so both are pinned explicitly here.
+#
+# Versions are pinned so that rebuilds are reproducible: deploy.sh rebuilds the
+# image on every deployment, and an unpinned dependency would let an unrelated
+# deploy silently pull a breaking major version. Bump these deliberately.
+streamlit==1.61.1
+pandas==3.0.5
+plotly==6.5.2
