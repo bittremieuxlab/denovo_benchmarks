@@ -30,6 +30,28 @@ def mass_diff(mz1, mz2, mode_is_da):
     return mz1 - mz2 if mode_is_da else (mz1 - mz2) / mz2 * 10**6
 
 
+TOKEN_PATTERN = re.compile(r"([A-Z])(?:\[([^\]]+)\])?")
+# A leading N-terminal modification token of a label: `[+42.011]-` (format_sequence) or `n[42.0106]`.
+N_TERM_TOKEN_PATTERN = re.compile(r"n?\[([+-]?[0-9.]+)\]-?")
+
+
+def fold_n_term_token(tokens: List[str]) -> List[str]:
+    """Add a leading N-terminal modification token into the first residue, e.g.
+    `["[+42.011]-", "M[+15.995]", "K"]` -> `["M[+58.006]", "K"]`.
+
+    Predictions are written that way by `ptms_to_delta_mass`, so both sides are matched residue by
+    residue. Other token lists are returned unchanged.
+    """
+    if len(tokens) < 2:
+        return tokens
+    n_term = N_TERM_TOKEN_PATTERN.fullmatch(tokens[0])
+    first = TOKEN_PATTERN.fullmatch(tokens[1])
+    if n_term is None or first is None:
+        return tokens
+    mass = float(n_term.group(1)) + (float(first.group(2)) if first.group(2) else 0.0)
+    return [f"{first.group(1)}[{mass:+}]", *tokens[2:]]
+
+
 def get_token_mass(
     token: str, aa_dict: Dict[str, float], default: float = 0
 ) -> float:
@@ -38,7 +60,7 @@ def get_token_mass(
     Raises ValueError for a residue missing from `aa_dict` or a modification that is not a number,
     rather than giving it a mass of 0. `default` is unused and kept for the callers' signature.
     """
-    match = re.fullmatch(r"([A-Z])(?:\[([^\]]+)\])?", token)
+    match = TOKEN_PATTERN.fullmatch(token)
     if match is None or match.group(1) not in aa_dict:
         raise ValueError(f"Cannot compute the mass of token {token!r}")
     return aa_dict[match.group(1)] + (float(match.group(2)) if match.group(2) else 0.0)
@@ -289,6 +311,7 @@ def aa_match_batch(
             peptide1 = re.split(r"(?<=.)(?=[A-Z])", peptide1) if peptide1 else []
         if isinstance(peptide2, str):
             peptide2 = re.split(r"(?<=.)(?=[A-Z])", peptide2) if peptide2 else []
+        peptide1, peptide2 = fold_n_term_token(peptide1), fold_n_term_token(peptide2)
         n_aa1, n_aa2 = n_aa1 + len(peptide1), n_aa2 + len(peptide2)
         aa_matches_batch.append(
             aa_match(

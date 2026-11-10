@@ -11,7 +11,7 @@ import pytest
 
 from evaluation import utils
 from evaluation.ground_truth_mapper import format_sequence
-from evaluation.metrics import aa_match_batch, get_token_mass
+from evaluation.metrics import aa_match_batch, fold_n_term_token, get_token_mass
 from evaluation.token_masses import AA_MASSES
 
 CARBAMYL = 43.005814
@@ -22,6 +22,7 @@ AMIDATION = -0.984016
 
 
 def scores_for(sequence):
+    """One score per token of `sequence`: 0.0, 1.0, 2.0, ..."""
     return ",".join(str(float(i)) for i in range(utils.get_n_tokens(sequence)))
 
 
@@ -31,17 +32,20 @@ def delta(token):
 
 
 def convert(sequence):
+    """Convert `sequence` with `ptms_to_delta_mass`; return its delta-mass tokens and the scores."""
     sequence_out, scores_out = utils.ptms_to_delta_mass(sequence, scores_for(sequence))
     tokens = [sequence_out[i] + sequence_out[i + 1 : j] for i, j in _token_bounds(sequence_out)]
     return tokens, [float(s) for s in scores_out.split(",")]
 
 
 def _token_bounds(sequence):
+    """(start, end) of each residue token in a delta-mass sequence."""
     starts = [i for i, c in enumerate(sequence) if c.isupper() and (i == 0 or sequence[i - 1] != "[")]
     return list(zip(starts, starts[1:] + [len(sequence)]))
 
 
 def matches(prediction, label):
+    """Whether a ProForma prediction fully matches a ground-truth label, as evaluate.py scores it."""
     sequence, _ = utils.ptms_to_delta_mass(prediction, scores_for(prediction))
     batch, _, _ = aa_match_batch([sequence], [format_sequence(label)], AA_MASSES)
     return batch[0][1]
@@ -159,6 +163,21 @@ def test_invalid_sequences(sequence):
     assert not utils.validate_sequence(sequence)
 
 
+@pytest.mark.parametrize(
+    "sequence",
+    [
+        "[UNIMOD:21]?PEPTIDEK",  # unlocalized
+        "{Glycan:Hex}PEPTIDEK",  # labile
+        "<[UNIMOD:4]@C>PEPCK",  # global fixed
+        "PR(TEIN)[+19.05]K",  # on a range
+        "<13C>PEPTIDEK",  # isotope label
+    ],
+)
+def test_sequences_with_modification_mass_off_the_residues_are_invalid(sequence):
+    # ptms_to_delta_mass only places modifications on residues and termini, so it would drop these masses
+    assert not utils.validate_sequence(sequence)
+
+
 # ---- token masses -------------------------------------------------------------------------------
 
 
@@ -172,3 +191,41 @@ def test_token_mass():
 def test_unreadable_token_raises_instead_of_weighing_nothing(token):
     with pytest.raises(ValueError):
         get_token_mass(token, AA_MASSES)
+
+
+# ---- N-terminal modifications in labels ---------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "tokens, folded",
+    [
+        (["[+42.011]-", "P", "K"], ["P[+42.011]", "K"]),
+        (["n[42.0106]", "P", "K"], ["P[+42.0106]", "K"]),
+        (["[-17.027]-", "Q", "K"], ["Q[-17.027]", "K"]),
+        (["P", "K"], ["P", "K"]),
+        (["[+42.011]-"], ["[+42.011]-"]),
+    ],
+)
+def test_fold_n_term_token(tokens, folded):
+    assert fold_n_term_token(tokens) == folded
+
+
+def test_fold_n_term_token_sums_a_first_residue_modification():
+    (first, rest) = fold_n_term_token(["[+42.011]-", "M[+15.995]", "K"])
+    assert delta(first) == pytest.approx(42.011 + 15.995, abs=1e-6)
+    assert rest == "K"
+
+
+@pytest.mark.parametrize(
+    "prediction, label",
+    [
+        ("[UNIMOD:1]-GATVHGHSVR", "[42.011]GATVHGHSVR"),  # format_sequence writes [+42.011]-GATVHGHSVR
+        ("[UNIMOD:1]-GATVHGHSVR", "n[42.0106]GATVHGHSVR"),
+        ("[UNIMOD:1]-M[UNIMOD:35]PEPK", "[42.011]M[15.995]PEPK"),
+    ],
+)
+def test_label_with_a_separate_nterm_modification_matches_and_counts_residues_only(prediction, label):
+    sequence, _ = utils.ptms_to_delta_mass(prediction, scores_for(prediction))
+    batch, n_aa_pred, n_aa_true = aa_match_batch([sequence], [format_sequence(label)], AA_MASSES)
+    assert batch[0][1]
+    assert n_aa_true == n_aa_pred == utils.get_n_tokens(prediction) - 1

@@ -30,12 +30,14 @@ def format_scores(aa_scores: list[float]) -> str:
 
 
 def merge_n_term_score(aa_scores: str) -> str:
+    """Merge the N-terminal group's score into the first residue's score, by averaging them."""
     aa_scores = parse_scores(aa_scores)
     aa_scores[0:2] = [np.mean(aa_scores[0:2])]
     return format_scores(aa_scores)
 
 
 def merge_c_term_score(aa_scores: str) -> str:
+    """Merge the C-terminal group's score into the last residue's score, by averaging them."""
     aa_scores = parse_scores(aa_scores)
     aa_scores[-2:] = [np.mean(aa_scores[-2:])]
     return format_scores(aa_scores)
@@ -96,10 +98,22 @@ def validate_spectrum_id(spectrum_id: str) -> bool:
     return bool(re.fullmatch(SPECTRUM_ID_PATTERN, spectrum_id))
 
 
+# ProForma features whose mass `ptms_to_delta_mass` cannot place on a residue.
+UNSUPPORTED_PROPERTIES = ("unlocalized_modifications", "labile_modifications", "fixed_modifications", "isotopes")
+
+
 def validate_sequence(sequence: str) -> bool:
-    """Whether a sequence is valid ProForma, with every residue and modification of known mass."""
+    """Whether a sequence is valid ProForma, with every residue and modification of known mass.
+
+    Modifications that are not on a residue or terminus (unlocalized, labile, global fixed, or on a
+    range) and isotope labels are rejected, because `ptms_to_delta_mass` would drop their mass.
+    """
     try:
         residues, properties = proforma.parse(sequence)
+        if any(properties.get(key) for key in UNSUPPORTED_PROPERTIES):
+            return False
+        if any(interval.tags for interval in properties.get("intervals") or []):
+            return False
         for tags in [properties["n_term"], properties["c_term"], *(tags for _, tags in residues)]:
             _group_mass(tags)
     except Exception:
