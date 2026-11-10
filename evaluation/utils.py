@@ -114,6 +114,9 @@ def get_n_tokens(sequence: str) -> int:
 
 
 def get_n_scores(scores: str) -> int:
+    """Number of ','-separated scores; 0 for a missing (NaN) or empty `aa_scores` value."""
+    if not isinstance(scores, str) or not scores:
+        return 0
     return len(scores.split(","))
 
 
