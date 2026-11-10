@@ -33,22 +33,15 @@ def mass_diff(mz1, mz2, mode_is_da):
 def get_token_mass(
     token: str, aa_dict: Dict[str, float], default: float = 0
 ) -> float:
-    """TODO."""
+    """Mass of a token in delta mass notation, e.g. `M` or `M[+15.994915]`.
 
-    def safe_float(s):
-        try:
-            return float(s)
-        except ValueError:
-            return default
-
-    if len(token) == 1:
-        mass = aa_dict.get(token, default)
-    else:
-        aa, ptm = token[0], token[2:-1] # not a transparent way
-        aa_mass = aa_dict.get(aa, default)
-        ptm_mass = safe_float(ptm)  # float(ptm)
-        mass = aa_mass + ptm_mass
-    return mass
+    Raises ValueError for a residue missing from `aa_dict` or a modification that is not a number,
+    rather than giving it a mass of 0. `default` is unused and kept for the callers' signature.
+    """
+    match = re.fullmatch(r"([A-Z])(?:\[([^\]]+)\])?", token)
+    if match is None or match.group(1) not in aa_dict:
+        raise ValueError(f"Cannot compute the mass of token {token!r}")
+    return aa_dict[match.group(1)] + (float(match.group(2)) if match.group(2) else 0.0)
 
 
 def aa_match_prefix(

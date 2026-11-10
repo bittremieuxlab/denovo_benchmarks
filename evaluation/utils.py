@@ -5,16 +5,7 @@ import pandas as pd
 from pyteomics import mgf, proforma
 from tqdm import tqdm
 
-
-# Instance of Unimod database to look up PTM masses
-try:
-    from pyteomics.mass.unimod import Unimod
-    UNIMOD_DB = Unimod()
-except:
-    from pyteomics.mass import Unimod
-    UNIMOD_DB = Unimod()
-# Cache of PTM masses to avoid repeated lookups in the Unimod database
-ptm_masses = {}
+from .token_masses import AA_MASSES
 
 
 def parse_scores(aa_scores: str) -> list[float]:
@@ -44,56 +35,41 @@ def merge_n_term_score(aa_scores: str) -> str:
     return format_scores(aa_scores)
 
 
-def _transform_match_ptm(match: re.Match) -> str:
-    """
-    TODO
-    """
-    ptm_idx = int(match.group(1))
-    
-    if ptm_idx not in ptm_masses:
-        try:
-            ptm_masses[ptm_idx] = UNIMOD_DB.get(ptm_idx).monoisotopic_mass
-        except:
-            ptm_masses[ptm_idx] = UNIMOD_DB.by_id(ptm_idx)["mono_mass"]
-        print(ptm_masses)
-    
-    ptm_mass = ptm_masses[ptm_idx]
-    return f"[{ptm_mass:+}]"
+def merge_c_term_score(aa_scores: str) -> str:
+    aa_scores = parse_scores(aa_scores)
+    aa_scores[-2:] = [np.mean(aa_scores[-2:])]
+    return format_scores(aa_scores)
 
 
-def _transform_match_n_term(match: re.Match) -> str:
-    """
-    TODO
-    """
-    n_term_mod = match.group(1)
-    first_aa = match.group(2)
-    
-    if match.group(3) is not None:
-        first_aa_ptm = match.group(3)
-        first_aa_ptm_mass = float(first_aa_ptm) # convert from str to float
-        n_term_mod_mass = float(n_term_mod) # convert n_term_mod_mass from str to float
-        first_aa_ptm_mass += n_term_mod_mass # sum up
-        first_aa_ptm = f"{first_aa_ptm_mass:+}" # convert back to string
-    else:
-        first_aa_ptm = n_term_mod
-    return f"{first_aa}[{first_aa_ptm}]"
+def _group_mass(tags) -> float:
+    """Summed mass of the modifications on one position, resolved by pyteomics."""
+    return sum(tag.mass for tag in tags or [])
 
 
 def ptms_to_delta_mass(sequence, aa_scores):
-    """Convert PTM representation from Unimod notation to delta mass notation."""
-    
-    PTM_PATTERN = r"\[UNIMOD:([0-9]+)\]" # find ptms
-    N_TERM_PATTERN = r"^\[([0-9+-.]+)\]-([A-Z])(?:\[([0-9+-.]+)\])?" # find n-term modifications in ProForma notation
-    
-    merged_n_term_mod = False
-    
-    sequence = re.sub(PTM_PATTERN, _transform_match_ptm, sequence)
-    sequence, merged_n_term_mod = re.subn(N_TERM_PATTERN, _transform_match_n_term, sequence)
-    
-    if merged_n_term_mod == 1:
+    """Convert a ProForma sequence to delta mass notation, e.g. `[UNIMOD:1]-M[UNIMOD:35]K` -> `M[+58.005479]K`.
+
+    The modifications on a residue are summed, and each terminal group, however many tags it holds,
+    is added into the residue at that end, as the ground truth labels write it. A terminal group has
+    one score of its own, which is merged with that residue's score.
+    """
+    residues, properties = proforma.parse(sequence)
+    n_term, c_term = properties["n_term"], properties["c_term"]
+    last = len(residues) - 1
+    tokens = []
+    for i, (aa, tags) in enumerate(residues):
+        modified = bool(tags) or (i == 0 and n_term) or (i == last and c_term)
+        mass = _group_mass(tags)
+        if i == 0:
+            mass += _group_mass(n_term)
+        if i == last:
+            mass += _group_mass(c_term)
+        tokens.append(f"{aa}[{mass:+}]" if modified else aa)
+    if n_term:
         aa_scores = merge_n_term_score(aa_scores)
-    
-    return sequence, aa_scores
+    if c_term:
+        aa_scores = merge_c_term_score(aa_scores)
+    return "".join(tokens), aa_scores
 
 
 def remove_ptms(sequence, ptm_pattern="[^A-Z]"):
@@ -103,14 +79,12 @@ def remove_ptms(sequence, ptm_pattern="[^A-Z]"):
 # Auxiliary methods to validate output format of predicted sequences and aa scores
 
 def get_n_tokens(sequence: str) -> int:
-    """Calculate number of tokens in a sequence in ProForma notation."""
-    seq = proforma.parse(sequence.replace("][", ", "))
-    n_tokens = len(seq[0])
-    if seq[1]["n_term"]:
-        n_tokens += len(seq[1]["n_term"])
-    if seq[1]["c_term"]:
-        n_tokens += len(seq[1]["c_term"])
-    return n_tokens
+    """Number of scored tokens in a ProForma sequence: one per residue, plus one per modified terminus.
+
+    A terminal group is one token however many modifications it holds.
+    """
+    residues, properties = proforma.parse(sequence)
+    return len(residues) + bool(properties["n_term"]) + bool(properties["c_term"])
 
 
 def get_n_scores(scores: str) -> int:
@@ -123,14 +97,14 @@ def validate_spectrum_id(spectrum_id: str) -> bool:
 
 
 def validate_sequence(sequence: str) -> bool:
+    """Whether a sequence is valid ProForma, with every residue and modification of known mass."""
     try:
-        # Merge subsequent modifications together, because pyteomics.proforma 
-        # cannot parse sequence with multiple N-term modifications
-        # TODO: maybe only merge _terminal_ modifications?
-        seq = proforma.parse(sequence.replace("][", ", "))
-    except:
+        residues, properties = proforma.parse(sequence)
+        for tags in [properties["n_term"], properties["c_term"], *(tags for _, tags in residues)]:
+            _group_mass(tags)
+    except Exception:
         return False
-    return True
+    return all(aa in AA_MASSES for aa, _ in residues)
 
 
 def validate_token_scores(scores: str, sequence: str) -> bool:
