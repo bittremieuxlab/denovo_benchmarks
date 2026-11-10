@@ -95,3 +95,13 @@ test:
     - brew install bats-core  # or apt-get install bats
     - ./tests/run_tests.sh
 ```
+
+## Python unit tests for the evaluation
+
+`test_evaluation_utils.py` covers the ProForma handling in `evaluation/utils.py` and `evaluation/metrics.py`: validation, token counting, and the conversion of predictions to delta mass notation. Run it from the repository root, with the evaluation dependencies from `evaluation.def` installed, plus `pytest`:
+
+```bash
+python -m pytest tests/test_evaluation_utils.py
+```
+
+pyteomics resolves Unimod accessions on first use, which needs network access.
