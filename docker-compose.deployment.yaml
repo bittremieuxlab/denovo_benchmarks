@@ -23,6 +23,9 @@ services:
       STREAMLIT_SERVER_HEADLESS: "true"
       TZ: Europe/Brussels
 
+    labels:
+      web-service-type: web-projects
+
     networks:
       - bittremieuxlab-public
 
