@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 
 
 RESULTS_DIR = "results"
+ALGORITHMS_DIR = "algorithms"
 PLOT_HEIGHT = 500
 # PLOT_WIDTH = 650
 
@@ -40,13 +41,29 @@ def load_plot_data(dataset_name, metric_name):
     return df
 
 
+def get_current_version(algo):
+    """Get the current container version of an algorithm."""
+    versions_log = os.path.join(ALGORITHMS_DIR, algo, "versions.log")
+    if not os.path.exists(versions_log):
+        return None
+    with open(versions_log) as f:
+        for line in f:
+            if "container_version:" in line:
+                return line.split('"')[1]
+    return None
+
+
 def get_latest_versions(df):
     """Get the latest version for each algorithm."""
     latest = {}
     for algo in df["algorithm"].unique():
         versions = df[df["algorithm"] == algo]["version"].unique()
-        # Prefer 'latest' if present, otherwise take the last one alphabetically
-        if "latest" in versions:
+        current_version = get_current_version(algo)
+        # Prefer the current container version from versions.log,
+        # then 'latest' if present, otherwise take the last one alphabetically
+        if current_version in versions:
+            latest[algo] = current_version
+        elif "latest" in versions:
             latest[algo] = "latest"
         else:
             latest[algo] = sorted(versions)[-1]
