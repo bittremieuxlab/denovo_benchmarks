@@ -78,7 +78,8 @@ elif [[ "$*" == *"exec"* ]]; then
         fi
         
         if [ -n "$algo_dir" ] && [ -f "$algo_dir/outputs.csv" ] && [ -n "$output_dir" ]; then
-            mv "$algo_dir/outputs.csv" "$output_dir/output.csv"
+            # Use the target file name of the cp command (e.g. output.csv)
+            mv "$algo_dir/outputs.csv" "$output_dir/$(basename "${cmd##* }")"
             exit $?
         fi
     else

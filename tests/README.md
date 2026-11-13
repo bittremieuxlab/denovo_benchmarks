@@ -1,6 +1,6 @@
-# Testing run_dataset.sh
+# Testing the run scripts
 
-This directory contains test suites for the `run_dataset.sh` script.
+This directory contains test suites for the run scripts: `run.sh`, `run_split.sh`, `run_array.sh` and `run_test.sh`.
 
 ## Test Framework
 
@@ -27,38 +27,39 @@ sudo ./install.sh /usr/local
 ./tests/run_tests.sh
 
 # Run unit tests only
-bats tests/test_run_dataset.bats
+bats tests/test_run.bats
 
 # Run specific test
-bats tests/test_run_dataset.bats --filter "script accepts -r flag"
+bats tests/test_run_integration.bats --filter "run_array.sh"
 
 # Run with tap output
-bats --tap tests/test_run_dataset.bats
+bats --tap tests/test_run.bats
 ```
 
 ## Test Structure
 
-- **`test_run_dataset.bats`** - Unit tests for individual components and logic
-- **`test_run_dataset_integration.bats`** - End-to-end integration tests (require mocking)
+- **`test_run.bats`** - Unit tests for individual components and logic
+- **`test_run_integration.bats`** - End-to-end integration tests (require mocking)
+- **`mock_env/`** - Mocked `apptainer` (runs `make_predictions.sh` of the algorithm locally, exports its output)
 - **`run_tests.sh`** - Convenient test runner that checks dependencies
 
 ## Test Coverage
 
-### Unit Tests (test_run_dataset.bats)
+### Unit Tests (test_run.bats)
 - ✓ Script existence and executability
-- ✓ Argument parsing (dataset directory, flags)
-- ✓ Directory creation
-- ✓ Cleanup logic with `-r` flag
-- ✓ Algorithm directory filtering
-- ✓ File path construction
-- ✓ MGF file detection
-- ✓ Error handling
+- ✓ Argument parsing (dataset directory, algorithm, flags)
+- ✓ Algorithm validation (unknown algorithm, `base`)
+- ✓ Version extraction from `versions.log`
+- ✓ Output paths (`outputs/<algorithm>/<version>/<dataset>/`)
 
-### Integration Tests (test_run_dataset_integration.bats)
-- Full script execution with mocked dependencies
-- Output file creation
-- Skip logic for existing outputs
-- Recalculation with `-r` flag
+### Integration Tests (test_run_integration.bats)
+- `run.sh`: full execution, output and time log, skip logic for existing outputs, recalculation with `-r`, `--no-eval`, quiet mode `-q`, overlay cleanup, evaluation of only the run algorithm version
+- `run_split.sh`: running and merging parts, more parts than files, failed parts (no merge, rerun of missing parts), 
+  augmentation and evaluation, algorithm validation
+- `run_array.sh`: status per dataset and algorithm (new or reused output, algorithm failed, augmentation failed, 
+  unknown algorithm), one evaluation per dataset, `-q`, default algorithm list
+- `run_test.sh`: run on the sample dataset with `.env`, output format validation, cleanup
+- Datasets are mounted in augmentation and evaluation containers
 
 ## Writing New Tests
 

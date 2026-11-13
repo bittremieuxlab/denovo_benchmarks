@@ -2,12 +2,15 @@ import os
 import ast
 import pandas as pd
 import streamlit as st
+import plotly.colors
 import plotly.graph_objects as go
-from datasets_info import DATASETS
 
 
 RESULTS_DIR = "results"
+ALGORITHMS_DIR = "algorithms"
 PLOT_HEIGHT = 500
+ALGORITHM_COLORS = plotly.colors.qualitative.Dark24
+VERSION_DASHES = ["solid", "dash", "dot", "dashdot"]
 # PLOT_WIDTH = 650
 
 st.set_page_config(layout="wide")
@@ -41,13 +44,43 @@ def load_plot_data(dataset_name, metric_name):
     return df
 
 
+@st.cache_data
+def get_algorithm_colors():
+    """Assign each algorithm a fixed color, the same in all plots and datasets."""
+    algorithms = set()
+    for dataset_name in load_all_datasets():
+        df = load_plot_data(dataset_name, "peptide_precision")
+        if df is not None:
+            algorithms.update(df["algorithm"].unique())
+    return {
+        algo: ALGORITHM_COLORS[idx % len(ALGORITHM_COLORS)]
+        for idx, algo in enumerate(sorted(algorithms))
+    }
+
+
+def get_current_version(algo):
+    """Get the current container version of an algorithm."""
+    versions_log = os.path.join(ALGORITHMS_DIR, algo, "versions.log")
+    if not os.path.exists(versions_log):
+        return None
+    with open(versions_log) as f:
+        for line in f:
+            if "container_version:" in line:
+                return line.split('"')[1]
+    return None
+
+
 def get_latest_versions(df):
     """Get the latest version for each algorithm."""
     latest = {}
     for algo in df["algorithm"].unique():
         versions = df[df["algorithm"] == algo]["version"].unique()
-        # Prefer 'latest' if present, otherwise take the last one alphabetically
-        if "latest" in versions:
+        current_version = get_current_version(algo)
+        # Prefer the current container version from versions.log,
+        # then 'latest' if present, otherwise take the last one alphabetically
+        if current_version in versions:
+            latest[algo] = current_version
+        elif "latest" in versions:
             latest[algo] = "latest"
         else:
             latest[algo] = sorted(versions)[-1]
@@ -57,6 +90,8 @@ def get_latest_versions(df):
 def create_plot(df, selected_versions, title, xaxis_title="Coverage", yaxis_title="Precision", show_auc=False):
     """Create a Plotly figure from plot data."""
     fig = go.Figure()
+    algorithm_colors = get_algorithm_colors()
+    latest_versions = get_latest_versions(df)
     
     for _, row in df.iterrows():
         algo_name = row["algorithm"]
@@ -71,12 +106,19 @@ def create_plot(df, selected_versions, title, xaxis_title="Coverage", yaxis_titl
         if show_auc and "auc" in row and pd.notna(row["auc"]):
             label += f" AUC = {row['auc']:.3f}"
         
+        # Same color for an algorithm everywhere; its default version is solid,
+        # other selected versions get a different dash
+        latest_version = latest_versions[algo_name]
+        versions = [latest_version] + sorted(v for v in selected_versions[algo_name] if v != latest_version)
+        dash = VERSION_DASHES[versions.index(algo_version) % len(VERSION_DASHES)]
+        
         fig.add_trace(
             go.Scatter(
                 x=row["coverage"],
                 y=row["metric"],
                 mode="lines",
                 name=label,
+                line=dict(color=algorithm_colors.get(algo_name), dash=dash),
             )
         )
     
@@ -173,9 +215,6 @@ with tab1:
         for dataset_name in selected_datasets:
             st.divider()
             st.subheader(dataset_name)
-            
-            if dataset_name in DATASETS:
-                st.caption(DATASETS[dataset_name])
             
             # Load one metric to get algorithm/version info
             sample_data = load_plot_data(dataset_name, "peptide_precision")
