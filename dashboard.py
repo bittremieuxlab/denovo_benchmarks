@@ -2,12 +2,15 @@ import os
 import ast
 import pandas as pd
 import streamlit as st
+import plotly.colors
 import plotly.graph_objects as go
 
 
 RESULTS_DIR = "results"
 ALGORITHMS_DIR = "algorithms"
 PLOT_HEIGHT = 500
+ALGORITHM_COLORS = plotly.colors.qualitative.Dark24
+VERSION_DASHES = ["solid", "dash", "dot", "dashdot"]
 # PLOT_WIDTH = 650
 
 st.set_page_config(layout="wide")
@@ -39,6 +42,20 @@ def load_plot_data(dataset_name, metric_name):
     df["coverage"] = df["coverage"].apply(ast.literal_eval)
     df["metric"] = df["metric"].apply(ast.literal_eval)
     return df
+
+
+@st.cache_data
+def get_algorithm_colors():
+    """Assign each algorithm a fixed color, the same in all plots and datasets."""
+    algorithms = set()
+    for dataset_name in load_all_datasets():
+        df = load_plot_data(dataset_name, "peptide_precision")
+        if df is not None:
+            algorithms.update(df["algorithm"].unique())
+    return {
+        algo: ALGORITHM_COLORS[idx % len(ALGORITHM_COLORS)]
+        for idx, algo in enumerate(sorted(algorithms))
+    }
 
 
 def get_current_version(algo):
@@ -73,6 +90,8 @@ def get_latest_versions(df):
 def create_plot(df, selected_versions, title, xaxis_title="Coverage", yaxis_title="Precision", show_auc=False):
     """Create a Plotly figure from plot data."""
     fig = go.Figure()
+    algorithm_colors = get_algorithm_colors()
+    latest_versions = get_latest_versions(df)
     
     for _, row in df.iterrows():
         algo_name = row["algorithm"]
@@ -87,12 +106,19 @@ def create_plot(df, selected_versions, title, xaxis_title="Coverage", yaxis_titl
         if show_auc and "auc" in row and pd.notna(row["auc"]):
             label += f" AUC = {row['auc']:.3f}"
         
+        # Same color for an algorithm everywhere; its default version is solid,
+        # other selected versions get a different dash
+        latest_version = latest_versions[algo_name]
+        versions = [latest_version] + sorted(v for v in selected_versions[algo_name] if v != latest_version)
+        dash = VERSION_DASHES[versions.index(algo_version) % len(VERSION_DASHES)]
+        
         fig.add_trace(
             go.Scatter(
                 x=row["coverage"],
                 y=row["metric"],
                 mode="lines",
                 name=label,
+                line=dict(color=algorithm_colors.get(algo_name), dash=dash),
             )
         )
     
