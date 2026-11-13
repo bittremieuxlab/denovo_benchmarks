@@ -44,12 +44,18 @@ from its original representation (**input format**) to the format expected by th
     - .csv file (with `sep=","`)
     - must contain columns:
         - `"sequence"` — predicted peptide sequence, written in the predefined **output sequence format**
-        - `"score"` — *de novo* algorithm "confidence" score for a predicted sequence
-        - `"aa_scores"` — per-amino acid scores, if available. If not available, the whole peptide `score` will be used as a score for each amino acid.
+        - `"score"` — *de novo* algorithm confidence score for a predicted sequence, higher means more confident. 
+            It is used to rank the predictions in the precision-coverage curves.
+        - `"aa_scores"` — per-token scores separated by commas, e.g. `"0.91,0.85,0.99,0.97"`: 
+            one per amino acid, plus one for the N-terminal and one for the C-terminal modification, if present. 
+            Higher means more confident. If not available, the whole peptide `score` will be used as a score for each token.
         - `"spectrum_id"` — information to match each prediction with its ground truth sequence.  
             `{filename}:{index}` string, where  
             `filename` — name of the .mgf file in a dataset,  
             `index` — index (0-based) of each spectrum in an .mgf file.
+    - Spectra without a prediction can be left out, or written with an empty `sequence`; they count as unanswered. 
+    A row with a `sequence` must also have its `score` and `aa_scores`. 
+    A prediction whose `sequence` is not valid ProForma, or whose number of `aa_scores` does not match its number of tokens, is counted as no prediction.
         
     
     - **Output sequence format**
