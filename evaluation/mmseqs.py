@@ -9,6 +9,19 @@ def isoleucine_to_leucine(sequence):
     return sequence.replace("I", "L") if isinstance(sequence, str) else sequence
 
 
+def run_command(cmd, quiet=False):
+    """Run a shell command. If quiet, show its output only when it fails."""
+    if not quiet:
+        subprocess.run(" ".join(cmd), shell=True, check=True)
+        return
+    result = subprocess.run(
+        " ".join(cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
+    )
+    if result.returncode != 0:
+        print(result.stdout)
+        raise subprocess.CalledProcessError(result.returncode, result.args)
+
+
 def setup_mmseqs_dirs(search_tmp_dir="./mmseqs2_tmp"):
     """Create directories for MMseqs2 proteome matches search."""
     # dir for MMseqs2 files
@@ -94,13 +107,14 @@ def run_mmseqs(
     search_result_path,
     tmp_files_dir,
     args=[],
+    quiet=False,
 ):
     SEARCH_COLS = "query,target,qseq,qaln,taln,fident,alnlen,mismatch,gapopen,qstart,qend,tstart,tend,evalue,bits"
     QUERY_KEY = "query"
     
     print("\n CLEAN EXISTING RESULTS")
     cmd = ["rm -rf", search_result_dir + "/*"]
-    subprocess.run(" ".join(cmd), shell=True, check=True)
+    run_command(cmd, quiet)
     
     print("\n CREATE TARGET DB")
     target_db_path = os.path.join(target_db_dir, "targetDB")
@@ -112,7 +126,7 @@ def run_mmseqs(
         "-v 1",
     ]
     print(" ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, check=True)
+    run_command(cmd, quiet)
     
     print("\n CREATE QUERY DB")
     query_db_path = os.path.join(query_db_dir, "queryDB")
@@ -124,7 +138,7 @@ def run_mmseqs(
         "-v 1",
     ]
     print(" ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, check=True)
+    run_command(cmd, quiet)
     
     print("\n SEARCH/MAP SEQUENCES")
     # mmseqs map <i:queryDB> <i:targetDB> <o:alignmentDB> <tmpDir> [options]
@@ -142,7 +156,7 @@ def run_mmseqs(
         "-e inf",
     ] + args
     print(" ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, check=True)
+    run_command(cmd, quiet)
 
     print("\n CONVERT RESULTS TO .m8")
     # mmseqs convertalis queryDB targetDB resultDB resultDB.m8
@@ -157,7 +171,7 @@ def run_mmseqs(
         "-v 1"
     ]
     print(" ".join(cmd))
-    subprocess.run(" ".join(cmd), shell=True, check=True)
+    run_command(cmd, quiet)
 
     # Load search results
     search_df = pd.read_csv(search_result_path, sep="\t", names=SEARCH_COLS.split(","))
