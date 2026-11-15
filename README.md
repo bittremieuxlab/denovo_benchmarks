@@ -55,7 +55,7 @@ from its original representation (**input format**) to the format expected by th
             `index` — index (0-based) of each spectrum in an .mgf file.
     - Spectra without a prediction can be left out, or written with an empty `sequence`; they count as unanswered. 
     A row with a `sequence` must also have its `score` and `aa_scores`. 
-    A prediction whose `sequence` is not valid ProForma, or whose number of `aa_scores` does not match its number of tokens, is counted as no prediction.
+    A prediction whose `sequence` is not valid (see below), or whose number of `aa_scores` does not match its number of tokens, is counted as no prediction.
         
     
     - **Output sequence format**
@@ -66,6 +66,12 @@ from its original representation (**input format**) to the format expected by th
         `C[UNIMOD:4]` for Cysteine Carbamidomethylation, `M[UNIMOD:35]` for Methionine Oxidation, etc.
         - N-terminus and C-terminus modifications, if supported by the algorithm, are also written in **ProForma notation** with **Unimod accession codes**:  
         `[UNIMOD:xx]-PEPTIDE-[UNIMOD:yy]`
+        - Several modifications on the same residue or terminus are written one after another, e.g. `M[UNIMOD:35][UNIMOD:1]` or `[UNIMOD:5][UNIMOD:385]-PEPTIDE`. 
+        Their masses are summed, and a terminus counts as one token however many modifications it has.
+        - For the evaluation, terminal modifications are added to the first or last residue, the way the ground truth labels write them.
+        - A sequence is not valid (counted as no prediction) if it is not ProForma, contains a residue other than the 20 above, 
+        has a modification whose mass cannot be resolved, or has a modification that is not on a residue or terminus 
+        (unlocalized `[UNIMOD:21]?PEPTIDE`, labile `{Glycan:Hex}`, global `<[UNIMOD:4]@C>`, on a range `(PEP)[+79.966]`) or an isotope label (`<13C>`).
 
 - **`versions.log`** — list of container versions of the algorithm, newest first. 
 The benchmark always runs the newest `container_version`, and outputs and results are stored per version. 

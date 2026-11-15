@@ -99,10 +99,8 @@ test:
 
 ## Python unit tests for the evaluation
 
-`test_evaluation_utils.py` covers the ProForma handling in `evaluation/utils.py` and `evaluation/metrics.py`: validation, token counting, and the conversion of predictions to delta mass notation. Run it from the repository root, with the evaluation dependencies from `evaluation.def` installed, plus `pytest`:
+`test_evaluation_utils.py` checks how the evaluation handles predicted sequences: which sequences are valid, and that valid ones (with terminal and stacked modifications) are converted and matched against their labels as in `evaluate.py`. Run it from the repository root, with the evaluation dependencies from `evaluation.def` installed, plus `pytest`:
 
 ```bash
 python -m pytest tests/test_evaluation_utils.py
 ```
-
-pyteomics resolves Unimod accessions on first use, which needs network access.
