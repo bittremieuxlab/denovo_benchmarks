@@ -33,7 +33,11 @@ def mass_diff(mz1, mz2, mode_is_da):
 def get_token_mass(
     token: str, aa_dict: Dict[str, float], default: float = 0
 ) -> float:
-    """TODO."""
+    """Mass of a token in delta mass notation, e.g. `M` or `M[+15.994915]`.
+
+    An unknown residue or a modification that is not a number weighs `default` (0) instead of
+    raising, so labels with such tokens (e.g. `O`, `U`, `Kc[21.982]`) are still evaluated.
+    """
 
     def safe_float(s):
         try:

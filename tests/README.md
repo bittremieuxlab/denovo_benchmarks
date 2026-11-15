@@ -96,3 +96,11 @@ test:
     - brew install bats-core  # or apt-get install bats
     - ./tests/run_tests.sh
 ```
+
+## Python unit tests for the evaluation
+
+`test_evaluation_utils.py` checks how the evaluation handles predicted sequences: which sequences are valid, and that valid ones (with terminal and stacked modifications) are converted and matched against their labels as in `evaluate.py`. Run it from the repository root, with the evaluation dependencies from `evaluation.def` installed, plus `pytest`:
+
+```bash
+python -m pytest tests/test_evaluation_utils.py
+```

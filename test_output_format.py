@@ -1,34 +1,6 @@
-import re
 import pandas as pd
-from pyteomics import proforma
 
-
-def get_n_tokens(sequence: str) -> int:
-    seq = proforma.parse(sequence.replace("][", ", "))
-    n_tokens = len(seq[0])
-    if seq[1]["n_term"]:
-        n_tokens += len(seq[1]["n_term"])
-    if seq[1]["c_term"]:
-        n_tokens += len(seq[1]["c_term"])
-    return n_tokens
-
-def validate_spectrum_id(spectrum_id: str) -> bool:
-    # {filename}:{index}
-    SPECTRUM_ID_PATTERN = r"[^:]+:\d+"
-    return bool(re.fullmatch(SPECTRUM_ID_PATTERN, spectrum_id))
-
-def validate_sequence(sequence: str) -> bool:
-    try:
-        seq = proforma.parse(sequence.replace("][", ", "))
-    except:
-        return False
-    return True
-
-def validate_token_scores(scores: str, sequence: str) -> bool:
-    if not isinstance(scores, str):
-        return False
-    n_tokens = get_n_tokens(sequence)
-    return len(scores.split(",")) == n_tokens
+from evaluation.utils import validate_sequence, validate_spectrum_id, validate_token_scores
 
 
 output_data = pd.read_csv("test_outputs/test_output.csv")
@@ -52,7 +24,7 @@ print(f"Predictions: {len(output_data)} rows, {len(predicted)} predicted sequenc
 invalid_sequences = predicted.loc[~valid_sequence, "sequence"]
 invalid_scores = predicted[valid_sequence].loc[~valid_scores, "sequence"] if len(valid_scores) else []
 if len(invalid_sequences):
-    print(f"WARNING: {len(invalid_sequences)} predicted sequences are not in the ProForma format, e.g.:")
+    print(f"WARNING: {len(invalid_sequences)} predicted sequences are not valid (see the output sequence format in the README), e.g.:")
     for sequence in invalid_sequences[:5]:
         print(f"    {sequence}")
 if len(invalid_scores):

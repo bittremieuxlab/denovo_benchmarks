@@ -11,7 +11,7 @@ From: python:3.10
     pip install --no-cache-dir plotly==5.20.0
     pip install --no-cache-dir tqdm
     pip install --no-cache-dir PyYAML
-    pip install --no-cache-dir pyteomics==4.7.1
+    pip install --no-cache-dir "pyteomics[proforma]==5.0.2"
     pip install --no-cache-dir SQLAlchemy==2.0.30
     pip install --no-cache-dir lxml==4.9.1
     pip install --no-cache-dir spectrum-utils==0.4.2
