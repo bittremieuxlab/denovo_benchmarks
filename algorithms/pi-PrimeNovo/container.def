@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 
 %environment
     export PATH=/opt/conda/bin:$PATH
@@ -40,6 +40,7 @@ From: continuumio/miniconda3:latest
     # Clone and install ctcdecode
     git clone --recursive https://github.com/WayenVan/ctcdecode.git
     cd ctcdecode
+    git checkout 121bda68d33e4b19bee8668feadc4427a198facf && git submodule update --init --recursive
     pip install .
     cd ..
     rm -rf ctcdecode
@@ -49,7 +50,7 @@ From: continuumio/miniconda3:latest
     pip install cupy-cuda12x
     # pip install cupy-cuda13x
 
-    pip install "gdown<6"
+    pip install gdown==5.2.2
 
     gdown --fuzzy "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
     # Make prediction script executable (assuming you have a prediction script)

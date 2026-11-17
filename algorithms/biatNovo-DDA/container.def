@@ -28,6 +28,7 @@ From: nvcr.io/nvidia/pytorch:23.10-py3
     # All files must be placed within /algo dir.
     cd /algo
     git clone https://github.com/yangshu729/biatNovo-DDA.git
+    git -C biatNovo-DDA checkout 887fd04a9d177c0ac9938dcae7ca6d96e4599f47
 
     # [Optional] Install dependencies
     # (pandas is recommended to support parsing dataset tags)

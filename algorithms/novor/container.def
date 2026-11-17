@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: rapidnovor/novor-docker:novorai
+From: rapidnovor/novor-docker@sha256:2fffc4b0fc7608b8151489e5e0bc145452e0d1fef07713851251c5d8eedfeec5
+# Digest of the novorai tag used for the October 2026 builds
 
 %files
     # Copy algorithm-related files to a separate dir /algo.

@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 # From: python:3.10
 
 %files
@@ -22,7 +22,7 @@ From: continuumio/miniconda3:latest
     
     # Download algorithm weights from https://drive.google.com/file/d/1knNUqSwPf98j388Ds2E6bG8tAXx8voWR/view?pli=1
     conda activate ContraNovo
-    pip install gdown
+    pip install gdown==5.2.2
     gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
     # Move the checkpoint in the source dir
     mv ContraNovo.ckpt ContraNovo/

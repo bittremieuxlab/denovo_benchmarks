@@ -11,8 +11,9 @@ From: python:3.8
     # Download algorithm source code & Download algorithm weights
     cd /algo
     git clone https://github.com/PHOENIXcenter/pi-HelixNovo.git -b pi-HelixNovo-for-DenovoBenchmarks
+    git -C pi-HelixNovo checkout 47d73157ef54f417135770558b093d851cdf8b47
     # rm pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
-    curl -L -o pi-HelixNovo/pi-helixnovo_massivekb.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/refs/heads/pi-HelixNovo-for-DenovoBenchmarks/pi-helixnovo_massivekb.ckpt?download=true
+    curl -L -o pi-HelixNovo/pi-helixnovo_massivekb.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/47d73157ef54f417135770558b093d851cdf8b47/pi-helixnovo_massivekb.ckpt?download=true
 
     pip install \
     absl-py==1.4.0 \

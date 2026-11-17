@@ -15,6 +15,7 @@ From: continuumio/miniconda3:26.7.1-1
     # Download algorithm source code
     cd /algo
     git clone https://github.com/statisticalbiotechnology/pairwise.git
+    git -C pairwise checkout adad3537405320a8695a15f4a7c4128d43038af0
     cd pairwise
     # Replace SSH URLs with HTTPS in .gitmodules.
     sed -i 's/git@github.com:/https:\/\/github.com\//g' .gitmodules
@@ -38,7 +39,7 @@ From: continuumio/miniconda3:26.7.1-1
     cp /algo/create_lance.py /algo/pairwise/src/data/create_lance.py
 
     cd /algo
-    wget https://huggingface.co/alfred-n/PA-transformer/resolve/main/pairwise_mskb.ckpt
+    wget https://huggingface.co/alfred-n/PA-transformer/resolve/ee08cb3d4ee7bea7d5146b5dffba7737cdf7f353/pairwise_mskb.ckpt
 
 %post
     # Make sure make_predictions.sh file is executable.

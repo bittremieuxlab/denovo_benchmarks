@@ -23,6 +23,7 @@ From: python:3.10
     # All files must be placed within /algo dir.
     cd /algo
     git clone https://github.com/Westlake-OmicsAI/adanovo_v1.git
+    git -C adanovo_v1 checkout 212fbd4df8ce652a437973af39b46ef7bbd726b9
     
     # [Optional] Install dependencies
     # (pandas is recommended to support parsing dataset tags)
