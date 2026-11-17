@@ -1,0 +1,44 @@
+# Keep the build context small. The dashboard needs dashboard.py,
+# datasets_info.py and results/ — everything below belongs to the benchmarking
+# pipeline, which does not run in this image.
+#
+# Without this file the context is ~370 MB; with it, ~47 MB.
+
+.git
+.github
+.devcontainer
+
+# Benchmarking pipeline: Apptainer definitions, demo spectra, evaluation code
+algorithms/
+sample_data/
+evaluation/
+tests/
+evaluation.def
+
+# Pipeline entrypoints and helpers
+run.sh
+run_dataset.sh
+run_split.sh
+run_test.sh
+build_apptainer_images.sh
+augment_predictions.sh
+create_dataset.py
+dataset_utils.py
+dataset_config.py
+update_tags.py
+test_output_format.py
+
+# Deployment files themselves are not needed inside the image
+Dockerfile
+.dockerignore
+docker-compose.deployment.yaml
+deploy.sh
+
+# Local/editor cruft
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+.env.template
+.DS_Store
