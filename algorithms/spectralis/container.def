@@ -67,7 +67,7 @@ From: ubuntu:20.04
 
     pyenv activate spectralis
     pip install --upgrade pip
-    pip install git+https://github.com/gagneurlab/spectralis
+    pip install git+https://github.com/gagneurlab/spectralis@bbb1d9dde689eeb4724f43e1f5a9e6ff06f800d4
     pip install glob2
     pip install tritonclient==2.37.0.9383150
 

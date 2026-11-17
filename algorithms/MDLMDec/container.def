@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 # From: python:3.10
 
 %environment
@@ -17,7 +17,7 @@ From: continuumio/miniconda3:latest
     cd /algo
     git clone https://github.com/jlapin1/denovo_base.git
     cd denovo_base
-    git checkout head
+    git checkout a4bb37a53986a8c4c23d8aed578d7da9ea96284a
     # Replace SSH URLs with HTTPS in .gitmodules.
     # sed -i 's/git@github.com:/https:\/\/github.com\//g' .gitmodules
     git submodule update --init --recursive

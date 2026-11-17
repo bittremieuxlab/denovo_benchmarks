@@ -14,7 +14,7 @@ from collections import namedtuple
 from base import InputMapperBase
 
 
-KEYS = ["title", "pepmass", "charge", "scans", "rtinseconds"]
+KEYS = ["title", "pepmass", "charge", "scans", "rtinseconds", "seq"]
 PTM = namedtuple("DeepNovoPTM", ["amino_acid", "ptm_unimod_id", "representation"])
 
 class InputMapper(InputMapperBase):

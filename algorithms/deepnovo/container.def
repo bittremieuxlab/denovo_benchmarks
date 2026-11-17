@@ -37,12 +37,12 @@ From: tensorflow/tensorflow:1.2.0-gpu
     
     # # Download algorithm weights
     curl -LRO --connect-timeout 60 ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy \
-        || { pip install gdown \
+        || { pip install gdown==4.7.3 \
             && gdown "https://drive.google.com/uc?id=1um832lwCDpBptkeeCFhzWYuK4tgRwdm_" -O knapsack.npy.zip \
             && python -c "import zipfile; zipfile.ZipFile('knapsack.npy.zip').extractall('.')" \
             && rm knapsack.npy.zip; }
     # # Download model checkpoint (change to use other model weights)
-    pip install gdown
+    pip install gdown==4.7.3
     gdown --folder -O train.example https://drive.google.com/drive/folders/1pAUISLTeh3HQY8aaqzmpRyBFERxUJ1Lt
     cp train.example/checkpoint ./
     cp train.example/translate.ckpt* ./
