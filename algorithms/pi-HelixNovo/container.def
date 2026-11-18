@@ -14,6 +14,7 @@ From: python:3.8
     git -C pi-HelixNovo checkout 47d73157ef54f417135770558b093d851cdf8b47
     # rm pi-HelixNovo/MSV000081142-epoch-5-step-800000.ckpt
     curl -L -o pi-HelixNovo/pi-helixnovo_massivekb.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/47d73157ef54f417135770558b093d851cdf8b47/pi-helixnovo_massivekb.ckpt?download=true
+    echo "3c0503dbf396cc86ba881cf3a45f9e845afe324fe4e327df7f9efc485a9f4427  pi-HelixNovo/pi-helixnovo_massivekb.ckpt" | sha256sum -c -
 
     pip install \
     absl-py==1.4.0 \

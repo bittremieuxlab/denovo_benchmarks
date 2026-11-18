@@ -13,6 +13,9 @@ test_spectra_dir="$test_dset_dir/mgf"
 overlay_size=512
 test_output_dir="./test_outputs"
 
+# Check that versions.log records where the algorithm comes from
+apptainer exec "evaluation.sif" python check_versions_log.py "$algorithm_name" || exit 1
+
 # Create the output directory if it doesn't exist
 mkdir -p "${test_output_dir}"
 

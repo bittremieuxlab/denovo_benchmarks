@@ -24,6 +24,7 @@ From: continuumio/miniconda3:26.7.1-1
     conda activate ContraNovo
     pip install gdown==5.2.2
     gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
+    echo "d3e7c1d7bcaffe26166bb49c96927f314e4bec1ed04f00d4a9d6f0207119854f  ContraNovo.ckpt" | sha256sum -c -
     # Move the checkpoint in the source dir
     mv ContraNovo.ckpt ContraNovo/
 

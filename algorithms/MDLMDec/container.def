@@ -48,6 +48,10 @@ From: continuumio/miniconda3:26.7.1-1
     wget https://zenodo.org/records/21974207/files/config.yaml
     wget https://zenodo.org/records/21974207/files/dictionary.tsv
     wget https://zenodo.org/records/21974207/files/masses.tsv
+    echo "caa4189256ce899eefc95f751bdb0973998a5bcdf14a8c4e13dc9fc18eb0823d  model_step298238_high_0.960.wts" | sha256sum -c -
+    echo "38cf22bcd953d37f81900c1ca32e0fe39da1251b576c4424c1654b7f41746ea5  config.yaml" | sha256sum -c -
+    echo "cea89278139171e641cff477a476a51e583fccadd6d2cbe6ce684f77eeab4573  dictionary.tsv" | sha256sum -c -
+    echo "1b164bef86a6c2c3b2ad8ea76c123ac4cc0e60ecd074bee524e28caefff5f123  masses.tsv" | sha256sum -c -
     
     # Alter config.yaml for some settings
     sed -i "s/top_peaks:.*/top_peaks: 300/g" config.yaml

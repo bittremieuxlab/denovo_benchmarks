@@ -53,6 +53,7 @@ From: continuumio/miniconda3:26.7.1-1
     pip install gdown==5.2.2
 
     gdown --fuzzy "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
+    echo "6b3c46ce21537fd9154db66078844942ad26c5d186f19b5f917613045bd6f177  PrimeNovo.ckpt" | sha256sum -c -
     # Make prediction script executable (assuming you have a prediction script)
     chmod +x /algo/make_predictions.sh
 

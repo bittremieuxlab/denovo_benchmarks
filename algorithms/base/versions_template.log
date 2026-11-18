@@ -12,6 +12,13 @@
 #                       of the container update. Obtain via:
 #                         git rev-parse --short=7 HEAD
 # - notes             : One-line human note (what changed / why).
+# - upstream_ref      : Where the algorithm comes from, exactly as container.def fetches it
+#                       (checked by check_versions_log.py, which run_test.sh runs):
+#                         * pip: <package>==<version>
+#                         * git: <repo>@<commit>     container.def must check out this commit;
+#                                <repo>@<commit>#branch=<branch> when the branch is not the default
+#                         * docker: <image>@sha256:<digest>
+#                         * vendored: <where the copied code comes from>
 #
 # Keep it simple. 
 # ───────────────────────────────────────────────────────────────────────────
@@ -20,8 +27,4 @@
   date: "YYYY-MM-DD"                 # date of container update
   repo_commit: "<shortsha7>"          # denovo_benchmarks commit with container update
   notes: "<short note>"              # what changed / why
-  # optional provenance (choose one or omit):
-  # - pip: <package>==<version>
-  # - git: <repo>@<commit>               # or add branch when non-default:
-  #        <repo>@<commit>#branch=<branch>
-  upstream_ref: "<reference>"
+  upstream_ref: "<reference>"        # e.g. "git: https://github.com/<owner>/<repo>.git@<commit>"

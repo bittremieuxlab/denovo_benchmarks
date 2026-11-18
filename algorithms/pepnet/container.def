@@ -24,6 +24,7 @@ From: python:3.10
     # Download additional weights
     cd /algo
     curl https://zenodo.org/records/7869847/files/model.h5?download=1 -o model.h5
+    echo "6feec5a2f6fad391640cbc4640791ef1031fd19d6d4bc0aad15f585571c290ef  model.h5" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

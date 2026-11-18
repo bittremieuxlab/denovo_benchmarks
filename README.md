@@ -18,6 +18,8 @@ and [DeepNovo](https://github.com/bittremieuxlab/denovo_benchmarks/tree/main/alg
 
 - **`container.def`** — definition file of the [Apptainer](https://apptainer.org/docs/user/main/definition_files.html) 
 container image that creates environment and installs dependencies required for running the algorithm.
+Pin everything it fetches, so that a rebuild gives the same container: check out the commit given in `upstream_ref` after `git clone`, 
+use fixed package versions and base image tags, and check each downloaded file against its SHA-256 (`echo "<sha256>  <file>" | sha256sum -c -`).
     
 - **`make_predictions.sh`** — bash script to run the *de novo* algorithm on the input dataset 
 (folder with MS spectra in .mgf files) and generate an output file with per-spectrum peptide predictions.  
@@ -75,7 +77,7 @@ from its original representation (**input format**) to the format expected by th
 
 - **`versions.log`** — list of container versions of the algorithm, newest first. 
 The benchmark always runs the newest `container_version`, and outputs and results are stored per version. 
-A template with the required fields (`container_version`, `date`, `repo_commit`, `notes`) can be found in `algorithms/base/versions_template.log`.
+A template with the required fields (`container_version`, `date`, `repo_commit`, `notes`, `upstream_ref`) can be found in `algorithms/base/versions_template.log`.
 
 To check that your container runs and produces predictions in the output format, use `run_test.sh` (see [Running the benchmark](#running-the-benchmark)).
 `./run_test.sh [-k] algorithm_name` runs the algorithm on `sample_data/9_species_human` and checks its output. 

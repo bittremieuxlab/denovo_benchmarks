@@ -15,6 +15,7 @@ From: python:3.10
     # Download additional weights
     cd /algo
     curl -LRO https://github.com/instadeepai/InstaNovo/releases/download/1.2.0/instanovo-v1.2.0.ckpt
+    echo "60fc0a964328be8dd07d53eca84ac0b41afedd73ecc3e04cbba2fd4c3b9da51a  instanovo-v1.2.0.ckpt" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

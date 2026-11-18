@@ -2,4 +2,4 @@
   date: "2025-03-26" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
-  upstream_ref: "git: https://github.com/Westlake-OmicsAI/adanovo_v1.git@212fbd4" # optional reference
+  upstream_ref: "git: https://github.com/Westlake-OmicsAI/adanovo_v1.git@212fbd4"

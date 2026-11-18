@@ -45,6 +45,8 @@ From: nvcr.io/nvidia/pytorch:23.10-py3
     export RELEASE_VERSION="v0.1"
     wget -O sbatt_deepnovo.pth "https://github.com/yangshu729/biatNovo-DDA/releases/download/${RELEASE_VERSION}/sbatt_deepnovo.pth"
     wget -O spectrum_cnn.pth "https://github.com/yangshu729/biatNovo-DDA/releases/download/${RELEASE_VERSION}/spectrum_cnn.pth"
+    echo "37aadd30dbf5020c5865052e7e3e8ffb42b38d4d2df9e1b6c8553eee82fc9e6f  sbatt_deepnovo.pth" | sha256sum -c -
+    echo "71fb08a873633036ca3b23ee9c365ffbfad19b1589a74d674ef26909f48f196a  spectrum_cnn.pth" | sha256sum -c -
 
 %post
 	# Make sure make_predictions.sh file is executable.

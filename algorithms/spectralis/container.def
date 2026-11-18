@@ -74,11 +74,14 @@ From: ubuntu:20.04
 %post
 	# Download weigths for both Casanovo and Spectralis
     cd /algo
-    curl -O https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_nontryptic.ckpt
+    curl -fLO https://github.com/Noble-Lab/casanovo/releases/download/v4.2.0/casanovo_v4_2_0.ckpt
+    echo "72f7bb2c2a3939aa9060e3221bec9fc6cc2544a396dcda03e48b63a428567281  casanovo_v4_2_0.ckpt" | sha256sum -c -
 
     curl -O https://zenodo.org/records/8393846/files/spectralis_bin_reclass.pt
     # curl -O https://zenodo.org/records/8393846/files/spectralis_score.pkl # <-- old model
     curl -O https://zenodo.org/records/13844085/files/spectralis_score_wInitiScores.pkl
+    echo "fc4cd3e49f097f63580aaf8b89dc118151d889bbe8d15a141b30c885b047dd75  spectralis_bin_reclass.pt" | sha256sum -c -
+    echo "c17795e2c2e2a2d2841d6a9557c3ff8c85c314e0d6d899fb47c5eff8a51acaa3  spectralis_score_wInitiScores.pkl" | sha256sum -c -
     
 %post
 	# Make sure make_predictions.sh file is executable.

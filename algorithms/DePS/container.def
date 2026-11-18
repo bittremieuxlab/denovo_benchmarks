@@ -32,6 +32,7 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
             && gdown "https://drive.google.com/uc?id=1um832lwCDpBptkeeCFhzWYuK4tgRwdm_" -O knapsack.npy.zip \
             && python -c "import zipfile; zipfile.ZipFile('knapsack.npy.zip').extractall('models')" \
             && rm knapsack.npy.zip; }
+    echo "603cca6b17a6b6bf0efae3b82a8d9f9a1b446d27f36ff4afdff40465ddd8eefc  models/knapsack.npy" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

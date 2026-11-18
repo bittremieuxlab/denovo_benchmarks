@@ -28,7 +28,7 @@ From: python:3.12
     # FlashAttention is not in requirements.uv; prebuilt wheel matching
     # torch 2.7 / CUDA 12 / cp312. Needs an Ampere or newer GPU at run time.
     pip install --no-cache-dir --no-deps \
-        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.7cxx11abiTRUE-cp312-cp312-linux_x86_64.whl"
+        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.7cxx11abiTRUE-cp312-cp312-linux_x86_64.whl#sha256=cafd4f708725e1be95495a86cbf418cfada08e707c8a797def61488a2a3c4f72"
     # (pandas and pyteomics are needed by the benchmark base classes)
     pip install --no-cache-dir pandas pyteomics tqdm
 

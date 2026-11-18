@@ -40,6 +40,7 @@ From: continuumio/miniconda3:26.7.1-1
 
     cd /algo
     wget https://huggingface.co/alfred-n/PA-transformer/resolve/ee08cb3d4ee7bea7d5146b5dffba7737cdf7f353/pairwise_mskb.ckpt
+    echo "9be5ca860f97d1034a049c8d77575248382912401ca4ff5b1b9da3766cb4e02d  pairwise_mskb.ckpt" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

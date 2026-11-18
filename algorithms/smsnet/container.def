@@ -21,11 +21,13 @@ From: tensorflow/tensorflow:1.11.0-gpu-py3
 %post
     # Download standard model (with M-mod)
     curl -L -o /algo/standard/model.tar https://ndownloader.figshare.com/files/15438275
+    echo "b03c572cbcd54ce430e048db32578f2e158ef74b1bc4967c3e5c3656e4123cea  /algo/standard/model.tar" | sha256sum -c -
     cd /algo/standard && tar -zxf model.tar --no-same-owner
     mv smsnet model
     
     # Download phospho model (with M-mod and P-mod)
     curl -L -o /algo/phospho/model.tar https://ndownloader.figshare.com/files/15438278
+    echo "d687a20b821434d9e0f8bdb53e00a9d96c4ab06508bc47c398b29746c5c8314d  /algo/phospho/model.tar" | sha256sum -c -
     cd /algo/phospho && tar -zxf model.tar --no-same-owner 
     mv smsnet_phospho model
 

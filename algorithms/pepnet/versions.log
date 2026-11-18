@@ -2,3 +2,4 @@
   date: "2025-06-23" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
+  upstream_ref: "vendored: code added by the PepNet authors in f7cf6b0"

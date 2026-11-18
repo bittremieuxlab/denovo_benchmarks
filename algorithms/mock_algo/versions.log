@@ -2,6 +2,7 @@
   date: "2026-02-09" # date of container update
   repo_commit: "1f38642" # commit with container update
   notes: "Major update."
+  upstream_ref: "none: mock algorithm for tests"
 - container_version: "mock-1.0.0"
   date: "2026-01-28" # date of container update
   repo_commit: "10c6f92" # commit with container update

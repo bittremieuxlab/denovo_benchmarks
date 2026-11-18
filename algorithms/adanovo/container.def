@@ -35,6 +35,7 @@ From: python:3.10
     # Download model weights
     cd /algo
     curl -L -O https://github.com/Westlake-OmicsAI/adanovo_v1/releases/download/add_a_ckpt/ckpt_1.ckpt
+    echo "2e02254dd131bf44ac6517852d9825800a563d7b86739256a270a0d5c15e7936  ckpt_1.ckpt" | sha256sum -c -
     
 %post
 	# Make sure make_predictions.sh file is executable.
