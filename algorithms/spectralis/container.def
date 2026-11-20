@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: ubuntu:20.04
+# ubuntu:20.04 (20.04.6 LTS)
+From: ubuntu@sha256:8feb4d8ca5354def3d8fce243717141ce31e2c428701f6682bd2fafe15388214
 
 # Define system variables to provide GPU access within the container.
 %environment
@@ -39,6 +40,7 @@ From: ubuntu:20.04
     # Install pyenv to manage multiple python versions
     mkdir /opt/custom
     git clone https://github.com/pyenv/pyenv.git /opt/custom/.pyenv
+    git -C /opt/custom/.pyenv checkout f9d17bfc06ccbda37edd84df99a4f50d8d7d2a4a
 
     export PYENV_ROOT="/opt/custom/.pyenv"
     export PATH="$PYENV_ROOT/bin:$PATH"
@@ -47,29 +49,30 @@ From: ubuntu:20.04
     # Install pyenv virtualenv plugin
     mkdir $PYENV_ROOT/plugins/pyenv-virtualenv
     git clone https://github.com/pyenv/pyenv-virtualenv.git $PYENV_ROOT/plugins/pyenv-virtualenv
+    git -C $PYENV_ROOT/plugins/pyenv-virtualenv checkout eda64556af9b2992386deeb75dad2130899fc4c9
     eval "$(pyenv virtualenv-init -)"
 
 # Install casanovo and spectralis into pyenv envs
 %post
-    pyenv install 3.10
-    pyenv install 3.7
-    pyenv virtualenv 3.10 casanovo
-    pyenv virtualenv 3.7 spectralis
-    pyenv global 3.10 3.7
+    pyenv install 3.10.22
+    pyenv install 3.7.17
+    pyenv virtualenv 3.10.22 casanovo
+    pyenv virtualenv 3.7.17 spectralis
+    pyenv global 3.10.22 3.7.17
 
     eval "$(pyenv init -)"
     eval "$(pyenv virtualenv-init -)"
 
     pyenv activate casanovo
+    export PIP_CONSTRAINT=/algo/constraints_casanovo.txt  # exact package versions
     pip install --upgrade pip
     pip install casanovo==4.3.0 --no-cache-dir --prefer-binary
     pip install --no-cache-dir lightning==2.5.6 pytorch-lightning==2.5.6
 
     pyenv activate spectralis
-    pip install --upgrade pip
-    pip install git+https://github.com/gagneurlab/spectralis@bbb1d9dde689eeb4724f43e1f5a9e6ff06f800d4
-    pip install glob2
-    pip install tritonclient==2.37.0.9383150
+    unset PIP_CONSTRAINT
+    pip install --no-deps -r /algo/requirements_spectralis.txt
+    pip install --no-deps git+https://github.com/gagneurlab/spectralis@bbb1d9dde689eeb4724f43e1f5a9e6ff06f800d4
 
 %post
 	# Download weigths for both Casanovo and Spectralis

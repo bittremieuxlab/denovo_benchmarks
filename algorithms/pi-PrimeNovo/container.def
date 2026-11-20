@@ -21,7 +21,8 @@ From: continuumio/miniconda3:26.7.1-1
     cd /algo
     # going inside pi-PrimeNovo dir
     cd pi-PrimeNovo
-    conda create -y -n PrimeNovo python=3.10
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    conda create -y -n PrimeNovo python=3.10.22
     conda activate PrimeNovo
 
     # Install Python dependencies
@@ -31,10 +32,10 @@ From: continuumio/miniconda3:26.7.1-1
     # Create constraints file to prevent numpy/pandas upgrades
     echo "numpy<2.0" > /tmp/constraints.txt
     echo "pandas==1.5.2" >> /tmp/constraints.txt
-    export PIP_CONSTRAINT=/tmp/constraints.txt
+    export PIP_CONSTRAINT="/algo/constraints.txt /tmp/constraints.txt"
 
     # Install gcc and g++ compilers
-    conda install -c conda-forge gcc=11 gxx=11 -y
+    conda install -c conda-forge gcc=11.4.0 gxx=11.4.0 -y
     
 
     # Clone and install ctcdecode
@@ -46,7 +47,7 @@ From: continuumio/miniconda3:26.7.1-1
     rm -rf ctcdecode
 
     # Install CuPy (adapt CUDA version accordingly)
-    conda install -y -c nvidia cuda-toolkit=12.4.*
+    conda install -y -c nvidia cuda-toolkit=12.4.1
     pip install cupy-cuda12x
     # pip install cupy-cuda13x
 

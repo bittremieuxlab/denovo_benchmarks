@@ -1,11 +1,14 @@
 from load_standalone_model import load_model
 from loader_ import LoaderHF
+import random
 import torch
 from denovo_base.utils import Dict2dev
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+SEED = 0
 
 # Function to set EOS as last non-AA token and then fill to the right side with NT
 def fill_null_after_first_eos_token(intseq, EOS, NT):
@@ -55,6 +58,10 @@ def to_list_of_numbers(array, aaseqlist, reverse):
     ]
 
 def main():
+    random.seed(SEED)
+    np.random.seed(SEED)
+    torch.manual_seed(SEED)
+
     # Create and load model
     model = load_model("./experiment_directory", device=device)
     

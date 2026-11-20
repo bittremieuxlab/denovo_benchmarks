@@ -16,6 +16,7 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     
     # Install dependencies
     # (pandas is recommended to support parsing dataset tags)
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
     pip install pandas numpy pyteomics SQLAlchemy lxml
     
     # Install algorithm

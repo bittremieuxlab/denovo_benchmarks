@@ -1,6 +1,7 @@
 Bootstrap: docker
 # Full (non-slim) image: SeqFiller's knapsack extension is compiled with gcc in %post.
-From: python:3.12
+# python:3.12 (Python 3.12.16, Debian 13)
+From: python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee2af538f09d944f0d290ee3cb
 
 %environment
     # Prebuilt knapsack table for candidates.txt (see prebuild_knapsack.py).
@@ -16,6 +17,7 @@ From: python:3.12
     algorithms/RNovA/output_mapper.py /algo/output_mapper.py
     algorithms/RNovA/prebuild_knapsack.py /algo/prebuild_knapsack.py
     algorithms/RNovA/candidates.txt /algo/candidates.txt
+    algorithms/RNovA/constraints.txt /algo/constraints.txt
     algorithms/RNovA/RNovA /algo/RNovA
     algorithms/base /algo/base
 
@@ -24,6 +26,7 @@ From: python:3.12
     SEQFILLER=/algo/RNovA/RNovA_SeqFiller_Inference
 
     # Install dependencies (torch 2.7.1 from PyPI bundles its CUDA 12.6 runtime)
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
     pip install --no-cache-dir -r "$SEQFILLER/requirements.uv"
     # FlashAttention is not in requirements.uv; prebuilt wheel matching
     # torch 2.7 / CUDA 12 / cp312. Needs an Ampere or newer GPU at run time.

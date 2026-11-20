@@ -14,6 +14,7 @@ From: continuumio/miniconda3:26.7.1-1
     # git clone git@github.com:BEAM-Labs/ContraNovo.git
     # git clone https://github.com/BEAM-Labs/ContraNovo.git
     cd ContraNovo
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment

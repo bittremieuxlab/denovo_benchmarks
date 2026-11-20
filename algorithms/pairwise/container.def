@@ -22,6 +22,8 @@ From: continuumio/miniconda3:26.7.1-1
     git submodule update --init --recursive
 
     # install conda environment
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    sed -i 's/- python=3.10$/- python=3.10.22/' environment.yml
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment

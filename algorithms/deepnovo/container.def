@@ -13,6 +13,7 @@ From: tensorflow/tensorflow:1.2.0-gpu
 
 %post
     # Install Python packages
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
     pip install gnupg
     pip install numpy==1.16.6 pandas==0.24.2 
     pip install Cython==3.0.9

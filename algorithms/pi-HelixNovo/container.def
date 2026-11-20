@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: python:3.8
+# python:3.8 (Python 3.8.20, Debian 12)
+From: python@sha256:d411270700143fa2683cc8264d9fa5d3279fd3b6afff62ae81ea2f9d070e390c
 
 %files
     # Copy algorithm-related files to a separate dir /algo.
@@ -16,6 +17,7 @@ From: python:3.8
     curl -L -o pi-HelixNovo/pi-helixnovo_massivekb.ckpt https://media.githubusercontent.com/media/PHOENIXcenter/pi-HelixNovo/47d73157ef54f417135770558b093d851cdf8b47/pi-helixnovo_massivekb.ckpt?download=true
     echo "3c0503dbf396cc86ba881cf3a45f9e845afe324fe4e327df7f9efc485a9f4427  pi-HelixNovo/pi-helixnovo_massivekb.ckpt" | sha256sum -c -
 
+    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
     pip install \
     absl-py==1.4.0 \
     aiohttp==3.8.4 \
