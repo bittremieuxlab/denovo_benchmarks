@@ -1,5 +1,3 @@
-# Exact versions of the Python packages in this container (pip list --format=freeze of the 2026-10 build).
-# container.def sets PIP_CONSTRAINT to this file, so every pip install gets these versions.
 Deprecated==1.2.13
 Markdown==3.4.1
 MarkupSafe==2.1.2

@@ -1,3 +1,0 @@
-lr: 5e-5
-total_epoch: 2
-batch_size: 128

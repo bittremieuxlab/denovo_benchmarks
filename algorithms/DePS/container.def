@@ -16,7 +16,7 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     
     # Install dependencies
     # (pandas is recommended to support parsing dataset tags)
-    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install pandas numpy pyteomics SQLAlchemy lxml
     
     # Install algorithm
@@ -24,7 +24,7 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
     git -C DePS4DenovoBenchmarks checkout 21dbab870be5a5ddbd7cfc923a4b23070e48abf8
     # Update source files with adjustments for denovo_benchmarks 
-    cp /algo/updated_source/* /algo/DePS4DenovoBenchmarks
+    git -C DePS4DenovoBenchmarks apply /algo/patches/DePS.patch
 
     # Download additional weights
     cd DePS4DenovoBenchmarks

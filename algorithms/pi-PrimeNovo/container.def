@@ -19,9 +19,14 @@ From: continuumio/miniconda3:26.7.1-1
 
     # Create conda environment
     cd /algo
+    git clone https://github.com/PHOENIXcenter/pi-PrimeNovo.git
+    git -C pi-PrimeNovo checkout 38b8393dd8b8de66bcd05c03808f31de32751ac8
+    git -C pi-PrimeNovo apply /algo/patches/pi-PrimeNovo.patch
+    # remove the compiled Python files committed upstream
+    find pi-PrimeNovo -name __pycache__ -type d -prune -exec rm -rf {} +
     # going inside pi-PrimeNovo dir
     cd pi-PrimeNovo
-    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    export PIP_CONSTRAINT=/algo/constraints.txt
     conda create -y -n PrimeNovo python=3.10.22
     conda activate PrimeNovo
 

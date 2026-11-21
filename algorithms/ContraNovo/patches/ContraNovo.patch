@@ -1,0 +1,404 @@
+diff --git a/ContraNovo/ContraNovo.py b/ContraNovo/ContraNovo.py
+index 5d26640..83d4419 100644
+--- a/ContraNovo/ContraNovo.py
++++ b/ContraNovo/ContraNovo.py
+@@ -21,7 +21,7 @@ import yaml
+ from pytorch_lightning.lite import LightningLite
+ 
+ from . import utils
+-from .denovo import model_runner
++from .denovo import model_runner, ms_io
+ 
+ 
+ logger = logging.getLogger("ContraNovo")
+@@ -172,6 +172,8 @@ def main(
+     # Add extra configuration options and scale by the number of GPUs.
+     n_gpus = torch.cuda.device_count()
+     config["n_workers"] = utils.n_workers()
++    # Make sure n_workers = 0 and doesn't cause multiprocessing errors
++    print("DEBUG: N workers =", config["n_workers"])
+     if n_gpus > 1:
+         config["train_batch_size"] = config["train_batch_size"] // n_gpus
+ 
+@@ -194,10 +196,11 @@ def main(
+     # Run ContraNovo in the specified mode.
+     if mode == "denovo":
+         logger.info("Predict peptide sequences with ContraNovo.")
+-        writer = None
+-        # writer.set_metadata(
+-        #     config, peak_path=peak_path, model=model, config_filename=config_fn
+-        # )
++        # self.writer = ms_io.MztabWriter(Path(output).with_suffix(".mztab"))
++        writer = ms_io.MztabWriter(filename="./outputs.mztab")
++        writer.set_metadata(
++            config, peak_path=peak_path, model=model, config_filename=config_fn
++        )
+         model_runner.predict(peak_path, model, config, writer)
+         writer.save()
+     elif mode == "eval":
+diff --git a/ContraNovo/config.yaml b/ContraNovo/config.yaml
+index 1e264dc..50f6cb5 100644
+--- a/ContraNovo/config.yaml
++++ b/ContraNovo/config.yaml
+@@ -25,7 +25,8 @@ n_layers: 9
+ dropout: 0.18
+ dim_intensity:
+ custom_encoder:
+-max_length: 100
++# max_length: 100
++max_length: 50 # DEBUG
+ residues:
+   "G": 57.021464
+   "A": 71.037114
+@@ -86,7 +87,7 @@ SWA: False #
+ train_batch_size: 64
+ predict_batch_size: 512
+ # n_beams: 5
+-n_beams: 5 # No beam search
++n_beams: 1 # No beam search # DEBUG
+ 
+ logger:
+ 
+diff --git a/ContraNovo/denovo/model.py b/ContraNovo/denovo/model.py
+index 4610f6a..aaec085 100644
+--- a/ContraNovo/denovo/model.py
++++ b/ContraNovo/denovo/model.py
+@@ -211,6 +211,9 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+         aa_scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
+             The individual amino acid scores for each prediction.
+         """
++        print("DEBUG: run model.forward()")
++        print("spectra:", spectra.device, "->", self.encoder.device)
++        print("precursors:", precursors.device, "->", self.decoder.device)
+         aa_scores, tokens = self.beam_search_decode(
+             spectra.to(self.encoder.device),
+             precursors.to(self.decoder.device),
+@@ -1058,8 +1061,7 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+                         aa_tokens,
+                         peptide_score,
+                         aa_scores,
+-                    ) = self._get_output_peptide_and_scores(
+-                        aa_tokens, aa_scores)
++                    ) = self._get_output_peptide_and_scores(aa_tokens, aa_scores)
+                     # Compare the experimental vs calculated precursor m/z.
+                     _, precursor_charge, precursor_mz = precursor
+                     precursor_charge = int(precursor_charge.item())
+@@ -1089,7 +1091,7 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+ 
+                     self.out_writer.psms.append((
+                         peptide,
+-                        spectrum_i,
++                        spectrum_i, # spectra_ref (=spectrum_title?)
+                         peptide_score,
+                         precursor_charge,
+                         precursor_mz,
+diff --git a/ContraNovo/denovo/model_runner.py b/ContraNovo/denovo/model_runner.py
+index 4295682..ddd00bf 100644
+--- a/ContraNovo/denovo/model_runner.py
++++ b/ContraNovo/denovo/model_runner.py
+@@ -126,7 +126,7 @@ def _execute_existing(
+     print("is peak not index?, ", peak_is_not_index)
+     
+     #SpectrumIdx = AnnotatedSpectrumIndex if annotated else SpectrumIndex
+-    valid_charge = np.arange(1, config["max_charge"] + 1)
++    valid_charge = np.arange(1, config["max_charge"] + 1) # will skip spectra with charge > max_charge
+     dataloader_params = dict(
+         batch_size=config["predict_batch_size"],
+         n_peaks=config["n_peaks"],
+@@ -164,9 +164,12 @@ def _execute_existing(
+     )
+     # Run the model with/without validation.
+     run_trainer = trainer.validate if annotated else trainer.predict
++    
+     pytorch_total_params = sum(p.numel() for p in model.parameters())
+     print("model size is : ", pytorch_total_params)
+-    run_trainer(model,test_dataloader)
++
++    run_trainer(model, dataloaders=test_dataloader)
++
+     # Clean up temporary files.
+     tmp_dir.cleanup()
+ 
+@@ -528,3 +531,4 @@ def _get_devices() -> Union[int, str]:
+         return "auto"
+     else:
+         return n_workers
++    return "auto" # let PyTorch Lightning decide
+diff --git a/ContraNovo/denovo/ms_io.py b/ContraNovo/denovo/ms_io.py
+new file mode 100644
+index 0000000..99bd3ba
+--- /dev/null
++++ b/ContraNovo/denovo/ms_io.py
+@@ -0,0 +1,212 @@
++"""
++Mass spectrometry file type input/output operations.
++(Based on MztabWriter from Casanovo https://github.com/Noble-Lab/casanovo/tree/main)
++"""
++
++import collections
++import csv
++import operator
++import os
++import re
++from pathlib import Path
++from typing import List
++
++import natsort
++
++from ..config import Config
++
++
++class MztabWriter:
++    """
++    Export spectrum identifications to an mzTab file.
++
++    Parameters
++    ----------
++    filename : str
++        The name of the mzTab file.
++    """
++
++    def __init__(self, filename: str):
++        self.filename = filename
++        self.metadata = [
++            ("mzTab-version", "1.0.0"),
++            ("mzTab-mode", "Summary"),
++            ("mzTab-type", "Identification"),
++            (
++                "description",
++                f"ContraNovo identification file "
++                f"{os.path.splitext(os.path.basename(self.filename))[0]}",
++            ),
++            ("software[1]", f"[MS, MS:1003281, ContraNovo]"),
++            (
++                "psm_search_engine_score[1]",
++                "[MS, MS:1001143, search engine specific score for PSMs, ]",
++            ),
++        ]
++        self._run_map = {}
++        self.psms = []
++
++    def set_metadata(self, config: Config, **kwargs) -> None:
++        """
++        Specify metadata information to write to the mzTab header.
++
++        Parameters
++        ----------
++        config : Config
++            The active configuration options.
++        kwargs
++            Additional configuration options (i.e. from command-line arguments).
++        """
++        # Derive the fixed and variable modifications from the residue alphabet.
++        known_mods = {
++            "+57.021": "[UNIMOD, UNIMOD:4, Carbamidomethyl, ]",
++            "+15.995": "[UNIMOD, UNIMOD:35, Oxidation, ]",
++            "+0.984": "[UNIMOD, UNIMOD:7, Deamidated, ]",
++            "+42.011": "[UNIMOD, UNIMOD:1, Acetyl, ]",
++            "+43.006": "[UNIMOD, UNIMOD:5, Carbamyl, ]",
++            "-17.027": "[UNIMOD, UNIMOD:385, Ammonia-loss, ]",
++        }
++        residues = collections.defaultdict(set)
++        for aa, mass in config["residues"].items():
++            aa_mod = re.match(r"([A-Z]?)([+-]?(?:[0-9]*[.])?[0-9]+)", aa)
++            if aa_mod is None:
++                residues[aa].add(None)
++            else:
++                residues[aa_mod[1]].add(aa_mod[2])
++        fixed_mods, variable_mods = [], []
++        for aa, mods in residues.items():
++            if len(mods) > 1:
++                for mod in mods:
++                    if mod is not None:
++                        variable_mods.append((aa, mod))
++            elif None not in mods:
++                fixed_mods.append((aa, mods.pop()))
++
++        # Add all config values to the mzTab metadata section.
++        if len(fixed_mods) == 0:
++            self.metadata.append(
++                (
++                    "fixed_mod[1]",
++                    "[MS, MS:1002453, No fixed modifications searched, ]",
++                )
++            )
++        else:
++            for i, (aa, mod) in enumerate(fixed_mods, 1):
++                self.metadata.append(
++                    (
++                        f"fixed_mod[{i}]",
++                        known_mods.get(mod, f"[CHEMMOD, CHEMMOD:{mod}, , ]"),
++                    )
++                )
++                self.metadata.append(
++                    (f"fixed_mod[{i}]-site", aa if aa else "N-term")
++                )
++        if len(variable_mods) == 0:
++            self.metadata.append(
++                (
++                    "variable_mod[1]",
++                    "[MS, MS:1002454, No variable modifications searched,]",
++                )
++            )
++        else:
++            for i, (aa, mod) in enumerate(variable_mods, 1):
++                self.metadata.append(
++                    (
++                        f"variable_mod[{i}]",
++                        known_mods.get(mod, f"[CHEMMOD, CHEMMOD:{mod}, , ]"),
++                    )
++                )
++                self.metadata.append(
++                    (f"variable_mod[{i}]-site", aa if aa else "N-term")
++                )
++        for i, (key, value) in enumerate(kwargs.items(), 1):
++            self.metadata.append(
++                (f"software[1]-setting[{i}]", f"{key} = {value}")
++            )
++        for i, (key, value) in enumerate(config.items(), len(kwargs) + 1):
++            if key not in ("residues",):
++                self.metadata.append(
++                    (f"software[1]-setting[{i}]", f"{key} = {value}")
++                )
++
++    def set_ms_run(self, peak_filenames: List[str]) -> None:
++        """
++        Add input peak files to the mzTab metadata section.
++
++        Parameters
++        ----------
++        peak_filenames : List[str]
++            The input peak file name(s).
++        """
++        for i, filename in enumerate(natsort.natsorted(peak_filenames), 1):
++            filename = os.path.abspath(filename)
++            self.metadata.append(
++                (f"ms_run[{i}]-location", Path(filename).as_uri()),
++            )
++            self._run_map[filename] = i
++
++    def save(self) -> None:
++        """
++        Export the spectrum identifications to the mzTab file.
++        """
++        with open(self.filename, "w", newline="") as f:
++            writer = csv.writer(f, delimiter="\t", lineterminator=os.linesep)
++            # Write metadata.
++            for row in self.metadata:
++                writer.writerow(["MTD", *row])
++            # Write PSMs.
++            writer.writerow(
++                [
++                    "PSH",
++                    "sequence",
++                    "PSM_ID",
++                    "accession",
++                    "unique",
++                    "database",
++                    "database_version",
++                    "search_engine",
++                    "search_engine_score[1]",
++                    "modifications",
++                    "retention_time",
++                    "charge",
++                    "exp_mass_to_charge",
++                    "calc_mass_to_charge",
++                    "spectra_ref",
++                    "pre",
++                    "post",
++                    "start",
++                    "end",
++                    "opt_ms_run[1]_aa_scores",
++                ]
++            )
++            for i, psm in enumerate(
++                natsort.natsorted(self.psms, key=operator.itemgetter(1)), 1
++            ):
++                writer.writerow(
++                    [
++                        "PSM",
++                        psm[0],  # sequence
++                        i,  # PSM_ID
++                        "null",  # accession
++                        "null",  # unique
++                        "null",  # database
++                        "null",  # database_version
++                        f"[MS, MS:1003281, ContraNovo]",
++                        psm[2],  # search_engine_score[1]
++                        # FIXME: Modifications should be specified as
++                        #  controlled vocabulary terms.
++                        "null",  # modifications
++                        # FIXME: Can we get the retention time from the data
++                        #  loader?
++                        "null",  # retention_time
++                        psm[3],  # charge
++                        psm[4],  # exp_mass_to_charge
++                        psm[5],  # calc_mass_to_charge
++                        psm[1],  # spectrum_ref (spectrum_title)
++                        "null",  # pre
++                        "null",  # post
++                        "null",  # start
++                        "null",  # end
++                        psm[6],  # opt_ms_run[1]_aa_scores
++                    ]
++                )
+diff --git a/ContraNovo/denovo/parser2.py b/ContraNovo/denovo/parser2.py
+index 62d87f3..1b997d8 100644
+--- a/ContraNovo/denovo/parser2.py
++++ b/ContraNovo/denovo/parser2.py
+@@ -271,14 +271,14 @@ class MgfParser(BaseParser):
+         else:
+             precursor_mz, precursor_charge = None, 0
+ 
+-        if self.annotationsLabel:
+-            self.annotations.append(spectrum["params"].get("seq"))
+-        else:
+-            # print(spectrum)
+-            # print((spectrum["params"]["title"]))
+-            self.annotations.append(spectrum["params"]["title"])
+-
+         if self.valid_charge is None or precursor_charge in self.valid_charge:
++            if self.annotationsLabel:
++                self.annotations.append(spectrum["params"].get("seq"))
++            else:
++                # print(spectrum)
++                # print((spectrum["params"]["title"]))
++                self.annotations.append(spectrum["params"]["title"])
++
+             self.mz_arrays.append(list(spectrum["m/z array"]))
+             self.intensity_arrays.append(list(spectrum["intensity array"]))
+             self.precursor_mz.append(precursor_mz)
+diff --git a/ContraNovo/utils.py b/ContraNovo/utils.py
+index cca6774..10f3d26 100644
+--- a/ContraNovo/utils.py
++++ b/ContraNovo/utils.py
+@@ -24,17 +24,18 @@ def n_workers() -> int:
+     int
+         The number of workers.
+     """
+-    # Windows or MacOS: no multiprocessing.
+-    if platform.system() in ["Windows", "Darwin"]:
+-        return 0
+-    # Linux: scale the number of workers by the number of GPUs (if present).
+-    try:
+-        n_cpu = len(psutil.Process().cpu_affinity())
+-    except AttributeError:
+-        n_cpu = os.cpu_count()
+-    return (
+-        n_cpu // n_gpu if (n_gpu := torch.cuda.device_count()) > 1 else n_cpu
+-    )
++    return 0 # Using multiprocessing leads to pickle error (cannot pickle 'Environment' object)
++    # # Windows or MacOS: no multiprocessing.
++    # if platform.system() in ["Windows", "Darwin"]:
++    #     return 0
++    # # Linux: scale the number of workers by the number of GPUs (if present).
++    # try:
++    #     n_cpu = len(psutil.Process().cpu_affinity())
++    # except AttributeError:
++    #     n_cpu = os.cpu_count()
++    # return (
++    #     n_cpu // n_gpu if (n_gpu := torch.cuda.device_count()) > 1 else n_cpu
++    # )
+ 
+ 
+ def split_version(version: str) -> Tuple[str, str, str]:

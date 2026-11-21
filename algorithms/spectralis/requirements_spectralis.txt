@@ -1,6 +1,3 @@
-# Exact versions of the Python packages in the spectralis environment (pip list --format=freeze of the 2026-10 build),
-# installed with --no-deps: dependency resolution can't reach this set, because it has protobuf 4.24.4
-# next to tritonclient 2.37.0.9383150, whose [all] extra requires protobuf<4.
 Cython==3.0.12
 PyYAML==6.0.1
 aiohttp==3.8.6

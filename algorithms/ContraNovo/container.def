@@ -11,10 +11,13 @@ From: continuumio/miniconda3:26.7.1-1
 %post
     # Download algorithm source code
     cd /algo
-    # git clone git@github.com:BEAM-Labs/ContraNovo.git
-    # git clone https://github.com/BEAM-Labs/ContraNovo.git
+    git clone https://github.com/BEAM-Labs/ContraNovo.git
+    git -C ContraNovo checkout 503fdb3bb7146b46aa3e205d1b70b70e2a4be7b8
+    git -C ContraNovo apply /algo/patches/ContraNovo.patch
+    # remove the compiled Python files committed upstream
+    find ContraNovo -name __pycache__ -type d -prune -exec rm -rf {} +
     cd ContraNovo
-    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    export PIP_CONSTRAINT=/algo/constraints.txt
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment

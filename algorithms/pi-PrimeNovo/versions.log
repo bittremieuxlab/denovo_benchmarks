@@ -2,4 +2,4 @@
   date: "2025-11-20" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
-  upstream_ref: "vendored: code added by the PrimeNovo authors in bc52dd4"
+  upstream_ref: "git: https://github.com/PHOENIXcenter/pi-PrimeNovo.git@38b8393"

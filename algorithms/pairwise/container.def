@@ -22,7 +22,7 @@ From: continuumio/miniconda3:26.7.1-1
     git submodule update --init --recursive
 
     # install conda environment
-    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    export PIP_CONSTRAINT=/algo/constraints.txt
     sed -i 's/- python=3.10$/- python=3.10.22/' environment.yml
     conda env create -f environment.yml
 
@@ -37,8 +37,8 @@ From: continuumio/miniconda3:26.7.1-1
     cd depthcharge
     python -m pip install .
     
-    # replace create_lance.py with the fixed version for benchmarking
-    cp /algo/create_lance.py /algo/pairwise/src/data/create_lance.py
+    # benchmark changes to pairwise (create_lance.py: min_peaks=1)
+    git -C /algo/pairwise apply /algo/patches/pairwise.patch
 
     cd /algo
     wget https://huggingface.co/alfred-n/PA-transformer/resolve/ee08cb3d4ee7bea7d5146b5dffba7737cdf7f353/pairwise_mskb.ckpt

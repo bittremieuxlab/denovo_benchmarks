@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: tensorflow/tensorflow:1.11.0-gpu-py3
+# tensorflow/tensorflow:1.11.0-gpu-py3 (Python 3.5.2, CUDA 9)
+From: tensorflow/tensorflow@sha256:5854b0154159ed611483927835c208548e8f0ba960a800d2b063c1c3275ea6b9
 
 # Define system variables to provide GPU access within the container.
 %environment
@@ -12,6 +13,7 @@ From: tensorflow/tensorflow:1.11.0-gpu-py3
     algorithms/base /algo/base
 
 %post
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip3 install -r /algo/requirements.txt
     # apt-key del A4B469963BF863CC
     # apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub

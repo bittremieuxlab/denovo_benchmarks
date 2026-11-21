@@ -24,7 +24,7 @@ From: continuumio/miniconda3:26.7.1-1
     cd ..    
 
     # install conda environment
-    export PIP_CONSTRAINT=/algo/constraints.txt  # exact package versions
+    export PIP_CONSTRAINT=/algo/constraints.txt
     conda create -n temp python=3.10.22
 
     # source the conda initialization script before activating an environment

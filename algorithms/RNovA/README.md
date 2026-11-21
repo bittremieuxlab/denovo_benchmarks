@@ -9,8 +9,7 @@ generation and FDR filtering are not part of a benchmark run.
 
 | Path | |
 |---|---|
-| `RNovA/RNovA_SeqFiller_Inference/` | SeqFiller inference code, vendored from [zqq66/RNovA_SeqFiller_Inference](https://github.com/zqq66/RNovA_SeqFiller_Inference) @ `8196c1a`, with the modifications below |
-| `RNovA/LICENSE` | RNovA licence (Apache-2.0); SeqFiller's README states MIT |
+| `patches/RNovA.patch` | the modifications below; `container.def` clones [zqq66/RNovA_SeqFiller_Inference](https://github.com/zqq66/RNovA_SeqFiller_Inference) @ `8196c1a` and applies them |
 | `container.def` | Python 3.12 image: requirements, FlashAttention wheel, Cython knapsack extension, SeqFiller weights from [Zenodo 18352464](https://zenodo.org/records/18352464) (md5-checked), prebuilt knapsack table |
 | `make_predictions.sh` | merge the dataset, run SeqFiller, map the output |
 | `input_mapper.py` | merge all `.mgf` files into one input, with the benchmark `spectrum_id` written as `SCANS` |

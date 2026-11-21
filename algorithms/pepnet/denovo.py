@@ -14,6 +14,7 @@ from utils import *
 
 
 print(tf.__version__, tf.config.list_physical_devices('GPU'))
+tf.config.experimental.enable_op_determinism()
 
 
 def read_mgf(data, default_charge=-1, maxc=7):

@@ -1,0 +1,26 @@
+diff --git a/deepnovo_config.py b/deepnovo_config.py
+index 545e58b..657f219 100644
+--- a/deepnovo_config.py
++++ b/deepnovo_config.py
+@@ -200,7 +200,7 @@ knapsack_file = args.knapsack_file
+ topk_output = 1
+ denovo_input_spectrum_file = "spectrum.mgf"
+ denovo_input_feature_file = "features.csv"
+-denovo_output_file = "output.csv"
++denovo_output_file = "output.tsv" # # fixed for denovo_benchmarks
+ predicted_format = "deepnovo"
+ target_file = denovo_input_feature_file
+ predicted_file = denovo_output_file
+diff --git a/model.py b/model.py
+index 73c8b9c..7c5f997 100644
+--- a/model.py
++++ b/model.py
+@@ -7,7 +7,7 @@ from enum import Enum
+ 
+ 
+ activation_func = F.relu
+-device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
++device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu") # fixed for denovo_benchmarks
+ num_units = deepnovo_config.num_units
+ 
+ class TNet(nn.Module):
