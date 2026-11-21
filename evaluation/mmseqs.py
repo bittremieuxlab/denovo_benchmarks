@@ -79,13 +79,28 @@ def create_query_fasta(query_sequences, query_fasta_path):
     print("queryDB (fasta):", query_fasta_path)
 
 
+def get_reference_proteome(proteomes_dir, database_path, dataset_name):
+    """Return the path of the dataset's reference proteome, or None if it has none or the file is missing."""
+    if database_path == "0":
+        print(f"No reference proteome for {dataset_name} (proteome 0 in dataset_tags.tsv), proteome matches are not computed.\n")
+        return None
+    path = os.path.join(proteomes_dir, database_path)
+    if not os.path.isfile(path):
+        print(f"WARNING: reference proteome {path} not found, proteome matches are not computed for {dataset_name}.\n")
+        return None
+    return path
+
+
 def create_target_fasta(reference_proteome_path, contam_path, target_fasta_path):
     """
     Create target database for MMseqs2 search:
     - join reference proteome with common contaminants
     - replace I with L (indistinguishable by mass)
     """
-    
+    for path in (reference_proteome_path, contam_path):
+        if not os.path.isfile(path):
+            raise FileNotFoundError(f"Proteome file not found: {path}")
+
     cmd = [
         "cat",
         reference_proteome_path,

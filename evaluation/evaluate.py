@@ -9,6 +9,7 @@ from sklearn.metrics import auc
 
 from . import utils
 from . import ground_truth_mapper
+from . import mmseqs
 from .results import save_results
 from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
@@ -84,6 +85,8 @@ print(f"Skip SA and RT difference metrics: {args.skip_SA_RT_diff}.\n")
 # Get dataset tags and database_path (proteome column, by dataset_name)
 tags_df = pd.read_csv(DATASET_TAGS_PATH, sep='\t').set_index("dataset")
 database_path = tags_df.loc[dataset_name, "proteome"]
+if mmseqs.get_reference_proteome(PROTEOMES_DIR, database_path, dataset_name) is None:
+    args.skip_proteome_matches = True
 dataset_tags = tags_df.loc[dataset_name]
 dataset_tags = tuple(dataset_tags.index[dataset_tags == 1])
 # Get corresponding spectrum prediction models and supported modifications
