@@ -121,7 +121,14 @@ class OutputMapperBase:
                 axis=1,
                 result_type="expand",
             )
-        
+            # rows without per-token scores get the peptide score for each token
+            missing = output_data["sequence"].notna() & ~output_data["aa_scores"].apply(lambda s: isinstance(s, str) and s != "")
+            if missing.any():
+                output_data.loc[missing, "aa_scores"] = output_data[missing].apply(
+                    lambda row: self.simulate_token_scores(row["score"], row["sequence"]),
+                    axis=1,
+                )
+
         else:
             output_data["sequence"] = output_data["sequence"].apply(
                 self.format_sequence,
