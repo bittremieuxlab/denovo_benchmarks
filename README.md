@@ -272,6 +272,19 @@ To run the benchmark locally:
 
 Evaluation results are stored in `results/<dataset>/` (one plot data file per metric, one row per algorithm version) and are shown in the dashboard.
 
+These algorithms run with settings that differ from their authors' defaults:
+
+| Algorithm | Setting | Benchmark | Authors' default | Reason | Set in |
+|---|---|---|---|---|---|
+| RNovA | precursor tolerance | 10 ppm | 5 ppm | tuned for amino-acid AUC on the 9-species human sample | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | refinement iterations | 8 | 4 | same | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | precursor isotope shifts | −1, 0 | 0 only | same | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | score cutoff | predictions with a mean residue score below −2.0 are not reported | none | same | `patches/RNovA.patch` |
+| ContraNovo | beams | 1 (greedy decoding) | 5 | inference time | `patches/ContraNovo.patch` |
+| ContraNovo | maximum peptide length | 50 | 100 | inference time | `patches/ContraNovo.patch` |
+| pi-PrimeNovo | beams | 1 | 5 | not stated | `patches/pi-PrimeNovo.patch` |
+| InstaNovo | refinement with InstaNovo+ | off (`--no-refinement`) | on | run time | `make_predictions.sh` |
+
 ## Running Streamlit dashboard locally:
 To view the Streamlit dashboard for the benchmark locally, run:
 ```bash

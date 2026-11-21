@@ -14,8 +14,8 @@
 #   - 8 refinement iterations;
 #   - RNovA does not report sequences whose mean residue score is below -2.0 (fixed in
 #     Inference_Sequence.py, not configurable).
-# Tolerance and iterations are also RNovA's own defaults; they are spelled out here so
-# every run logs them.
+# Tolerance and iterations differ from upstream SeqFiller (5 ppm, 4 iterations); they are
+# spelled out here so every run logs them.
 #
 # Environment (all optional, e.g. via the harness --env-file):
 #   RNOVA_CANDIDATES     ';'-separated candidate list overriding candidates.txt,
