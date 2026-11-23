@@ -143,6 +143,7 @@ for part_idx in $(seq 0 $((n_parts-1))); do
     total_sec=$(awk "BEGIN {print $total_sec + $part_sec}")
 done
 printf 'real %.3fs\n' "$total_sec" > "$merged_time"
+bash write_prediction_info.sh "$algorithm_name" "$output_dir"
 
 # clean per-part artefacts
 echo "Removing per-part folders and overlays"

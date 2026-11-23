@@ -253,11 +253,12 @@ To run the benchmark locally:
     Outputs are stored as:
     ```
     outputs/<algorithm>/<version>/<dataset>/
-        output.csv   # predictions
-        time.log     # algorithm run time
+        output.csv             # predictions
+        time.log               # algorithm run time
+        prediction_info.yaml   # when, from which commit and with which container image the predictions were made
     ```
     Evaluation results are stored in `results/<dataset>/`. Only the rows of the evaluated algorithm version 
-    are added or replaced, results of other algorithms are kept.
+    are added or replaced, results of other algorithms are kept. The same holds for `results/provenance.csv` (see [Benchmark results](#benchmark-results)).
 
 5. **Run several datasets and algorithms**:
 
@@ -280,6 +281,19 @@ To run the benchmark locally:
 ## Benchmark results
 
 Evaluation results are stored in `results/<dataset>/` (one plot data file per metric, one row per algorithm version) and are shown in the dashboard.
+
+`results/provenance.csv` records what each of these results was computed with: one row per dataset, algorithm and version, written by `evaluate.py` together with the plot data. Its columns:
+- `upstream_ref`: from the algorithm's `versions.log`;
+- `predicted`, `prediction_commit`, `image_sha256`, `prediction_notes`: from `prediction_info.yaml`, that is when, from which commit of this repository and with which container image the predictions were made (`-dirty`: with uncommitted changes in the algorithm's folder);
+- `predictions_sha256`: the evaluated `output.csv`;
+- `evaluated`, `evaluation_commit`, `evaluation_packages`: when and with which code and package versions the evaluation ran (`-dirty`: with uncommitted changes in `evaluation/`);
+- `labels_sha256`, `proteome`, `intensity_model`, `rt_model`: the labels, the reference proteome of the proteome matches (empty if none) and the Koina models used for the dataset.
+
+For algorithms that are run by hand (PEAKS, GraphNovo), put the predictions in `outputs/<algorithm>/<version>/<dataset>/output.csv`, write `prediction_info.yaml` next to it yourself, and run `./run.sh /path/to/dataset/dir <algorithm>` to augment and evaluate them:
+```yaml
+predicted: "2026-03-01"           # date of the run
+notes: "PEAKS Studio 12.5, ..."   # software and version, settings, computer
+```
 
 These algorithms run with settings that differ from their authors' defaults:
 

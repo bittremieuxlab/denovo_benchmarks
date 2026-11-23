@@ -126,6 +126,10 @@ if [ ! -e "$output_file" ]; then
         "algorithms/${algorithm_name}/container.sif" \
         bash -c "cp /algo/outputs.csv /algo/outputs/output.csv"
 
+    if [ -e "$output_file" ]; then
+        bash write_prediction_info.sh "$algorithm_name" "$output_dir"
+    fi
+
 else
     echo "Skipping running algorithm: $algorithm_name. Output file already exists."
 fi

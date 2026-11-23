@@ -10,6 +10,7 @@ from sklearn.metrics import auc
 from . import utils
 from . import ground_truth_mapper
 from . import mmseqs
+from . import provenance
 from .results import save_results
 from .spectrum_prediction import (
     N_CALIBRATION_PSMS,
@@ -100,6 +101,12 @@ print(f"- RT: {model_name_rt}, supported PTMs: {supported_mods_rt}\n")
 labels_path = os.path.join(args.data_dir, "labels.csv")
 sequences_true = pd.read_csv(labels_path)
 sequences_true["seq"] = sequences_true["seq"].apply(ground_truth_mapper.format_sequence)
+
+# Recorded in results/provenance.csv for each evaluated algorithm
+evaluation_info = provenance.evaluation_info(
+    labels_path, "" if args.skip_proteome_matches else database_path, model_name_I, model_name_rt
+)
+provenance_rows = []
 
 # Get experimental spectra params
 dataset_path = os.path.join(args.data_dir, "mgf")
@@ -377,7 +384,11 @@ for algo_name in os.listdir(args.output_root_dir):
             coverage.tolist(), precision.tolist(), 
             auc=auc(coverage, precision) if len(coverage) > 0 else 0
         )
-        
+
+        provenance_rows.append(
+            provenance.provenance_row(dataset_name, algo_name, algo_version, output_path, evaluation_info)
+        )
+
         print("\n", "=" * 100, "\n")
 
 # Database search baseline n_proteome_matches plot
@@ -437,3 +448,10 @@ save_results(sa_plot_data, os.path.join(dataset_results_dir, "SA_plot_data.csv")
 
 output_metrics = pd.DataFrame(output_metrics).T
 save_results(output_metrics, os.path.join(dataset_results_dir, "metrics.csv"))
+
+if provenance_rows:
+    save_results(
+        pd.DataFrame(provenance_rows),
+        os.path.join(args.results_dir, provenance.PROVENANCE_FILE),
+        provenance.KEY_COLS,
+    )
