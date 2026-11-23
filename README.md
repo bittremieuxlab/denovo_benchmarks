@@ -168,6 +168,15 @@ Only the evaluation container accesses the `labels.csv` file to evaluate algorit
 We provide two small sample datasets (`9_species_human`, `9_species_mus_musculus`) and their reference proteomes (`proteomes/`) 
 in the `sample_data/` directory for testing the benchmarking pipeline locally.
 
+The spectra of the 62 public benchmark datasets are on MassIVE as [MSV000103779](https://massive.ucsd.edu/ProteoSAFe/QueryMSV?id=MSV000103779) 
+(`peak/mgf/<dataset>/`). Their labels, reference proteomes and the algorithms' predictions are in the reanalysis 
+[RMSV000000721](https://massive.ucsd.edu/ProteoSAFe/QueryMSV?id=RMSV000000721): `metadata/labels/<dataset>/labels.csv`, 
+`sequence/proteomes/` and `metadata/<algorithm>/<version>/<dataset>/output.csv`.
+
+`download_proteomes.py` downloads the reference proteomes named in `dataset_tags.tsv` from RMSV000000721 into `PROTEOMES_DIR` 
+(`--datasets` limits it to some datasets). With `--uniprot <proteome ID> --organism <name>` it downloads the current version 
+of a UniProt proteome instead, named `<organism>_uniprotkb_proteome_<proteome ID>_<date>.fasta`.
+
 However, running the full benchmark, especially on larger spectra files, is **not recommended** on a local computer, as de novo prediction can be computationally intensive and time-consuming. Additionally, while some containerized tool versions support flexible switching between CPU and GPU devices, others strictly require GPU access and will fail to run if a compatible GPU is unavailable.
 
 
