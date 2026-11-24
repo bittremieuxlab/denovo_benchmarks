@@ -1,3 +1,8 @@
+- container_version: "bm-1.1.0"
+  date: "2026-11-24" # date of container update
+  repo_commit: "" # commit with container update
+  notes: "PRECURSOR_MASS_PRECISION_INPUT_FILTER 1000 -> 10000 Da in config.py, so spectra with a precursor above ~1,799 Da are no longer dropped."
+  upstream_ref: "git: https://github.com/nh2tran/DeepNovo.git@8b0ec83"
 - container_version: "bm-1.0.0"
   date: "2025-10-08" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
