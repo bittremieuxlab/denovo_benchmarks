@@ -19,7 +19,19 @@ From: tensorflow/tensorflow@sha256:5854b0154159ed611483927835c208548e8f0ba960a80
     # apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
     # apt update
     # apt install wget
-    
+
+%post
+    # SMSNet source at the commit in upstream_ref, one copy per model, with the benchmark's changes (patches/)
+    curl -fL -o /tmp/smsnet.tar.gz https://github.com/cmb-chula/SMSNet/archive/facfaf441d0ef286d062f69530f0a298aba78edc.tar.gz
+    for model in standard phospho; do
+        mkdir -p /algo/$model
+        tar -xzf /tmp/smsnet.tar.gz -C /algo/$model --strip-components=1 --no-same-owner
+        # not used by the benchmark
+        rm -rf /algo/$model/.gitignore /algo/$model/utils_masking
+        patch -p1 -d /algo/$model < /algo/patches/$model.patch
+    done
+    rm /tmp/smsnet.tar.gz
+
 %post
     # Download standard model (with M-mod)
     curl -L -o /algo/standard/model.tar https://ndownloader.figshare.com/files/15438275

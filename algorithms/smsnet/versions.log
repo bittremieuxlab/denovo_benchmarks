@@ -2,4 +2,4 @@
   date: "2025-11-21" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
-  upstream_ref: "vendored: code added by the SMSNet authors in 21a9eaf"
+  upstream_ref: "git: https://github.com/cmb-chula/SMSNet.git@facfaf4"

@@ -1,0 +1,261 @@
+--- a/nmt/input_config.py
++++ b/nmt/input_config.py
+@@ -77,25 +77,18 @@
+                  # 'q', # 'Qmod',
+                  'R',
+                  'S',
+-                 's',
++                 #'s',
+                  'T',
+-                 't',
++                 #'t',
+                  'V',
+                  'W',
+                  'Y',
+-                 'y',
++                 #'y',
+                 ]
+ 
+-# vocab_reverse = _START_VOCAB + vocab_reverse
+-# print("vocab_reverse ", vocab_reverse) #
+ vocab_reverse_np = np.array(vocab_reverse)
+-# vocab = dict([(x, y) for (y, x) in enumerate(vocab_reverse)])
+-# print("vocab ", vocab)
+-
+ vocab_size_with_eos = len(vocab_reverse)
+ vocab_size = len(vocab_reverse) - 3
+-# print("vocab_size ", vocab_size) #
+-
+ 
+ # ==============================================================================
+ # GLOBAL VARIABLES for THEORETICAL MASS
+@@ -123,7 +116,6 @@
+            'N': 114.04293, # 2
+            # 'n': 115.02695, # N mod, N(+.98)
+            'D': 115.02694, # 3
+-
+            'E': 129.04259, # 5
+            'Q': 128.05858, # 6
+            # 'q': 129.0426, # Q mod, Q(+.98)
+@@ -166,19 +158,22 @@
+   with tf.device("/gpu:0"):
+     # AA_weight_table = lookup_ops.index_to_string_table_from_file(
+     #       "nmt/vocab/mass.txt", default_value="0.0")
+-    AA_weight_table = tf.constant([0.0, 0.0, 0.0, 71.03711, 160.03065,
+-                                   115.02694, 129.04259, 147.06841, 57.02146, 137.05891,
+-                                   113.08406, 128.09496, 113.08406, 131.04049, 147.0354,
+-                                   114.04293, 97.05276, 128.05858, 156.10111, 87.03203,
+-                                   166.99836, 101.04768, 181.01401, 99.06841, 186.07931,
+-                                   163.06333, 243.02966]) # M mod + ph mod
+ 
+-    # AA_weight_table = tf.constant([0.0, 0.0, 0.0, 71.03711, 160.03065,
+-    #                                115.02694, 129.04259, 147.06841, 57.02146, 137.05891,
+-    #                                113.08406, 128.09496, 113.08406, 131.04049, 147.0354,
+-    #                                114.04293, 97.05276, 128.05858, 156.10111, 87.03203,
+-    #                                101.04768, 99.06841, 186.07931, 163.06333]) # M mod
+-    
++    if len(vocab_reverse) == 27:
++        AA_weight_table = tf.constant([0.0, 0.0, 0.0, 71.03711, 160.03065,
++                                       115.02694, 129.04259, 147.06841, 57.02146, 137.05891,
++                                       113.08406, 128.09496, 113.08406, 131.04049, 147.0354,
++                                       114.04293, 97.05276, 128.05858, 156.10111, 87.03203,
++                                       166.99836, 101.04768, 181.01401, 99.06841, 186.07931,
++                                       163.06333, 243.02966]) # M mod + ph mod
++
++    else:
++        AA_weight_table = tf.constant([0.0, 0.0, 0.0, 71.03711, 160.03065,
++                                       115.02694, 129.04259, 147.06841, 57.02146, 137.05891,
++                                       113.08406, 128.09496, 113.08406, 131.04049, 147.0354,
++                                       114.04293, 97.05276, 128.05858, 156.10111, 87.03203,
++                                       101.04768, 99.06841, 186.07931, 163.06333]) # M mod
++
+     # AA_weight_table = tf.constant([0.0, 0.0, 0.0, 71.03711, 160.03065,
+     #                                115.02694, 129.04259, 147.06841, 57.02146, 137.05891,
+     #                                113.08406, 128.09496, 113.08406, 131.04049,
+--- a/run.py
++++ b/run.py
+@@ -20,7 +20,6 @@
+ import random
+ import sys
+ 
+-# import matplotlib.image as mpimg
+ import numpy as np
+ import tensorflow as tf
+ 
+@@ -31,7 +30,6 @@
+ from nmt.utils import vocab_utils
+ from nmt.utils import iterator_utils
+ from utils_data import convert_mgf_to_csv as mgf2csv
+-from utils_masking import create_denovo_report as report_utils
+ 
+ utils.check_tensorflow_version()
+ 
+@@ -42,32 +40,27 @@
+ from nmt import post_process
+ 
+ input_files = []
+-# input_files = ['data_deepnovo/peaks_db']
+-for i in range(22): #453,1): # 490,1): # 418,1):
++for i in range(22):
+     input_files.append("data_best_compat/train_" + str(i))
+-# print(input_files)
+ 
+ hparams = tf.contrib.training.HParams(
+       # Data
+-      src=input_files,  # "nmt/processed_data/evidence_16",
+-      # src="nmt/processed_data/evidence_16",
++      src=input_files,
+       tgt='_tgt.csv',
+       #train_prefix=flags.train_prefix,
+       #dev_prefix=flags.dev_prefix,
+       #test_prefix=flags.test_prefix,
+       #vocab_prefix=flags.vocab_prefix,
+       #embed_prefix=flags.embed_prefix,
+-      out_dir="log_ablation/log_best_700k...",# encoder_to_decoder_lookahead", # "log_nomod_full", #"test_one",
+-      tgt_vocab_file="nmt/vocab/vocab.txt",# "nmt/vocab/vocab_m.txt",
+-      tgt_vocab_size=27, # 27,
++      out_dir="log_ablation/log_best_700k",# encoder_to_decoder_lookahead",
++      tgt_vocab_file="nmt/vocab/vocab_m.txt",
++      tgt_vocab_size=24,
+       tgt_embed_file="",
+       
+-      # dev="data_mod_m/val_no_dup",  # "data_nomod_full/val_no_dup",
+-      # test="data_mod_m/test_no_dup", # "data_nomod_full/test_no_dup",
+-      dev="data_best_compat/val_no_dup", # "data_mod_m/val_no_dup_1000",  # "data_nomod_full/val_no_dup",
+-      test="data_best_compat/test_no_dup", # "data_mod_m/val_no_dup_relevant", #"data_mod_m/test_no_dup_1000", # "data_nomod_full/test_no_dup",
++      dev="data_best_compat/val_no_dup",
++      test="data_best_compat/test_no_dup",
+       src_suffix=".csv",
+-      train_fin=True, ###
++      train_fin=True,
+ 
+       # Networks
+       num_units=512,
+@@ -75,10 +68,9 @@
+       #num_encoder_layers=1, #(flags.num_encoder_layers or flags.num_layers),
+       num_decoder_layers=2 ,#(flags.num_decoder_layers or flags.num_layers),
+       dropout=0.1,
+-      unit_type="layer_norm_lstm", # "lstm", 
+-      # encoder_type=None, #flags.encoder_type,
+-      residual=True, #flags.residual,
+-      num_decoder_residual_layers = 1, ######
++      unit_type="layer_norm_lstm", 
++      residual=True,
++      num_decoder_residual_layers = 1,
+       time_major=True,
+       num_embeddings_partitions=0,
+ 
+@@ -96,9 +88,9 @@
+       init_weight=0.1,
+       max_gradient_norm=5.0,
+       learning_rate=0.01,
+-      warmup_steps=0, #flags.warmup_steps,
+-      warmup_scheme="t2t", #flags.warmup_scheme,
+-      decay_scheme="luong234", #flags.decay_scheme,
++      warmup_steps=0,
++      warmup_scheme="t2t",
++      decay_scheme="luong234",
+       colocate_gradients_with_ops=True,
+ 
+       # Data constraints
+@@ -108,31 +100,31 @@
+       tgt_max_len=None,
+ 
+       # Inference
+-      src_max_len_infer=None, #flags.src_max_len_infer,+
+-      tgt_max_len_infer=50, #flags.tgt_max_len_infer,
++      src_max_len_infer=None,
++      tgt_max_len_infer=50,
+       infer_batch_size=8,
+-      beam_width=20, ###############################################
++      beam_width=20,
+       length_penalty_weight=1.0,
+       sampling_temperature=0.0,
+-      num_translations_per_input=1, #flags.num_translations_per_input,
++      num_translations_per_input=1,
+ 
+       # Vocab
+       sos='<s>', #flags.sos if flags.sos else vocab_utils.SOS,
+       eos='</s>', #flags.eos if flags.eos else vocab_utils.EOS,
+-      subword_option=None, #flags.subword_option,
+-      check_special_token=None, #flags.check_special_token,
+-      embed_size=32, # 5, # 64
++      subword_option=None,
++      check_special_token=None,
++      embed_size=32,
+ 
+       # Misc
+       forget_bias=1.0,
+       num_gpus=1,
+-      epoch_step=0,  # record where we were within an epoch.
++      epoch_step=0, # record where we were within an epoch.
+       steps_per_stats=200,
+-      steps_per_external_eval=20000, #None,
+-      share_vocab=None, #flags.share_vocab,
++      steps_per_external_eval=20000,
++      share_vocab=None,
+       metrics=["bleu","accuracy","amino_acid_accuracy"], # rouge
+       log_device_placement=False,
+-      random_seed=48, #flags.random_seed,
++      random_seed=48,
+       override_loaded_hparams=False,
+       num_keep_ckpts=5,
+       avg_ckpts=False,
+@@ -159,13 +151,10 @@
+   parser.register("type", "bool", lambda v: v.lower() == "true")
+   parser.add_argument("--inference_input_file", type=str, default=None,
+                       help="Set to the text to decode.")
+-  # parser.add_argument("--inference_output_file", type=str, default=None,
+-  #                     help="Output file to store decoding results.")
+   parser.add_argument("--ckpt", type=str, default="",
+                       help="Checkpoint file to load a model for inference.")
+   parser.add_argument("--model_dir", type=str, default="",
+                       help="Directory to load a model for inference.")
+-  
+   parser.add_argument("--rescore", type="bool", nargs="?", const=True,
+                       default=False,
+                       help="Rescore with previously trained model.")
+@@ -178,17 +167,16 @@
+     # Inference
+     hparams.inference_indices = None
+     print(infer_input_file)
+-    
+-    # trans_file = args.inference_output_file
++
+     source_filename = os.path.basename(infer_input_file)[:-4] # no ".mgf"
+     input_dir = os.path.dirname(infer_input_file)
+ 
+     trans_dir = input_dir + '_output/'
+     trans_file = os.path.join(trans_dir, source_filename)
+-    # print(trans_path, trans_file)
++
+     if not os.path.exists(trans_dir):
+-      os.mkdir(trans_dir)
+-    
++      pass # os.mkdir(trans_dir)
++
+     # convert to csv format if nessesary to speed-up inference
+     if infer_input_file[-3:] == 'mgf':
+       mgf2csv.main([trans_dir, infer_input_file])
+@@ -197,7 +185,7 @@
+     else:
+       del_temp_file = False
+ 
+-    
++
+     # check model path
+     ckpt = args.ckpt
+     if not ckpt:
+@@ -216,12 +204,6 @@
+                            rescore_dir, trans_dir + source_filename + "_rescore")
+       print("Done")
+     
+-      # Create report if m_mod(21 AAs + 3 tokens) or p_mod (24 AAs + 3 tokens)
+-      if hparams.tgt_vocab_size == 24:
+-        report_utils.main(trans_dir, input_dir, 'm-mod')
+-      elif hparams.tgt_vocab_size == 27:
+-        report_utils.main(trans_dir, input_dir, 'p-mod')
+-    
+     if del_temp_file:
+       os.remove(infer_input_file)
+ 
