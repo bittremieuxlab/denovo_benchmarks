@@ -83,6 +83,8 @@ A template with the required fields (`container_version`, `date`, `repo_commit`,
 
 To check that your container runs and produces predictions in the output format, use `run_test.sh` (see [Running the benchmark](#running-the-benchmark)).
 `./run_test.sh [-k] algorithm_name` runs the algorithm on `sample_data/9_species_human` and checks its output. 
+It first checks that the newest `versions.log` entry has an `upstream_ref` that matches what `container.def` fetches 
+(`check_versions_log.py`; run `python check_versions_log.py` to check all algorithms). 
 It prints the number of valid predictions (`Predictions: N rows, M predicted sequences, K valid.`) and warns about invalid ones 
 (sequence not in ProForma format, or number of `aa_scores` not matching the sequence tokens), which the evaluation counts as no prediction.
 
