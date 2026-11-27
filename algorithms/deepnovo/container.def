@@ -13,6 +13,7 @@ From: tensorflow/tensorflow:1.2.0-gpu
 
 %post
     # Install Python packages
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install gnupg
     pip install numpy==1.16.6 pandas==0.24.2 
     pip install Cython==3.0.9
@@ -31,21 +32,25 @@ From: tensorflow/tensorflow:1.2.0-gpu
     curl -fL https://github.com/nh2tran/DeepNovo/archive/8b0ec8321d1006770032d069d76234fc95d36af3.tar.gz | tar xz
     mv DeepNovo-8b0ec8321d1006770032d069d76234fc95d36af3 DeepNovo
     # Fix batch size bug in deepnovo_main_modules.py
-    cp deepnovo_main_modules.py DeepNovo
+    patch -p1 -d DeepNovo < patches/deepnovo.patch
     # Build DeepNovo from source
     cd DeepNovo && python deepnovo_cython_setup.py build_ext --inplace && cd ..
     
     # # Download algorithm weights
     curl -LRO --connect-timeout 60 ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy \
-        || { pip install gdown \
+        || { pip install gdown==4.7.3 \
             && gdown "https://drive.google.com/uc?id=1um832lwCDpBptkeeCFhzWYuK4tgRwdm_" -O knapsack.npy.zip \
             && python -c "import zipfile; zipfile.ZipFile('knapsack.npy.zip').extractall('.')" \
             && rm knapsack.npy.zip; }
+    echo "603cca6b17a6b6bf0efae3b82a8d9f9a1b446d27f36ff4afdff40465ddd8eefc  knapsack.npy" | sha256sum -c -
     # # Download model checkpoint (change to use other model weights)
-    pip install gdown
+    pip install gdown==4.7.3
     gdown --folder -O train.example https://drive.google.com/drive/folders/1pAUISLTeh3HQY8aaqzmpRyBFERxUJ1Lt
     cp train.example/checkpoint ./
     cp train.example/translate.ckpt* ./
+    echo "805bd20717a1ce8fb54fc19f4bc36d6526de3b3d37b14c6c8f99883f36c42f19  checkpoint" | sha256sum -c -
+    echo "6885d9b12e498625e78f40abe12660753e5a3a5b10077199300dfc1414cf0c34  translate.ckpt-48600.data-00000-of-00001" | sha256sum -c -
+    echo "1279e6b6a5dfcbb250911ed014e48e964635009d6dc0868fd0441d3c69f0a58c  translate.ckpt-48600.index" | sha256sum -c -
     rm -r train.example
 
 %post

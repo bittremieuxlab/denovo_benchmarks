@@ -1,6 +1,7 @@
 Bootstrap: docker
 # Full (non-slim) image: SeqFiller's knapsack extension is compiled with gcc in %post.
-From: python:3.12
+# python:3.12 (Python 3.12.16, Debian 13)
+From: python@sha256:5411fa1b302c43f510324381162b5f5d0d93b9ee2af538f09d944f0d290ee3cb
 
 %environment
     # Prebuilt knapsack table for candidates.txt (see prebuild_knapsack.py).
@@ -16,19 +17,26 @@ From: python:3.12
     algorithms/RNovA/output_mapper.py /algo/output_mapper.py
     algorithms/RNovA/prebuild_knapsack.py /algo/prebuild_knapsack.py
     algorithms/RNovA/candidates.txt /algo/candidates.txt
-    algorithms/RNovA/RNovA /algo/RNovA
+    algorithms/RNovA/constraints.txt /algo/constraints.txt
+    algorithms/RNovA/patches /algo/patches
     algorithms/base /algo/base
 
 %post
     set -e
     SEQFILLER=/algo/RNovA/RNovA_SeqFiller_Inference
+    git clone https://github.com/zqq66/RNovA_SeqFiller_Inference.git "$SEQFILLER"
+    git -C "$SEQFILLER" checkout 8196c1abac19713f66c0bfe2595e2cc1f702069b
+    git -C "$SEQFILLER" apply /algo/patches/RNovA.patch
+    # the knapsack extension is built below; remove the build output committed upstream
+    rm "$SEQFILLER/data/knapsack_build.c" "$SEQFILLER/data/knapsack_build.cpython-312-x86_64-linux-gnu.so"
 
     # Install dependencies (torch 2.7.1 from PyPI bundles its CUDA 12.6 runtime)
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install --no-cache-dir -r "$SEQFILLER/requirements.uv"
     # FlashAttention is not in requirements.uv; prebuilt wheel matching
     # torch 2.7 / CUDA 12 / cp312. Needs an Ampere or newer GPU at run time.
     pip install --no-cache-dir --no-deps \
-        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.7cxx11abiTRUE-cp312-cp312-linux_x86_64.whl"
+        "https://github.com/Dao-AILab/flash-attention/releases/download/v2.8.3/flash_attn-2.8.3%2Bcu12torch2.7cxx11abiTRUE-cp312-cp312-linux_x86_64.whl#sha256=cafd4f708725e1be95495a86cbf418cfada08e707c8a797def61488a2a3c4f72"
     # (pandas and pyteomics are needed by the benchmark base classes)
     pip install --no-cache-dir pandas pyteomics tqdm
 

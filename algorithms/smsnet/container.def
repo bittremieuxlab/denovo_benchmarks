@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: tensorflow/tensorflow:1.11.0-gpu-py3
+# tensorflow/tensorflow:1.11.0-gpu-py3 (Python 3.5.2, CUDA 9)
+From: tensorflow/tensorflow@sha256:5854b0154159ed611483927835c208548e8f0ba960a800d2b063c1c3275ea6b9
 
 # Define system variables to provide GPU access within the container.
 %environment
@@ -12,20 +13,35 @@ From: tensorflow/tensorflow:1.11.0-gpu-py3
     algorithms/base /algo/base
 
 %post
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip3 install -r /algo/requirements.txt
     # apt-key del A4B469963BF863CC
     # apt-key adv --fetch-keys http://developer.download.nvidia.com/compute/cuda/repos/ubuntu1604/x86_64/3bf863cc.pub
     # apt update
     # apt install wget
-    
+
+%post
+    # SMSNet source at the commit in upstream_ref, one copy per model, with the benchmark's changes (patches/)
+    curl -fL -o /tmp/smsnet.tar.gz https://github.com/cmb-chula/SMSNet/archive/facfaf441d0ef286d062f69530f0a298aba78edc.tar.gz
+    for model in standard phospho; do
+        mkdir -p /algo/$model
+        tar -xzf /tmp/smsnet.tar.gz -C /algo/$model --strip-components=1 --no-same-owner
+        # not used by the benchmark
+        rm -rf /algo/$model/.gitignore /algo/$model/utils_masking
+        patch -p1 -d /algo/$model < /algo/patches/$model.patch
+    done
+    rm /tmp/smsnet.tar.gz
+
 %post
     # Download standard model (with M-mod)
     curl -L -o /algo/standard/model.tar https://ndownloader.figshare.com/files/15438275
+    echo "b03c572cbcd54ce430e048db32578f2e158ef74b1bc4967c3e5c3656e4123cea  /algo/standard/model.tar" | sha256sum -c -
     cd /algo/standard && tar -zxf model.tar --no-same-owner
     mv smsnet model
     
     # Download phospho model (with M-mod and P-mod)
     curl -L -o /algo/phospho/model.tar https://ndownloader.figshare.com/files/15438278
+    echo "d687a20b821434d9e0f8bdb53e00a9d96c4ab06508bc47c398b29746c5c8314d  /algo/phospho/model.tar" | sha256sum -c -
     cd /algo/phospho && tar -zxf model.tar --no-same-owner 
     mv smsnet_phospho model
 

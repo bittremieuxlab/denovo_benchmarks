@@ -1,5 +1,6 @@
 Bootstrap: docker
-From: python:3.10
+# python:3.10 (Python 3.10.22, Debian 13)
+From: python@sha256:c10791e6f69086d5216f7b5d3b839929c454e24305867ed9bc5152f0355b5423
 
 %files
     # Copy algorithm-related files
@@ -9,10 +10,16 @@ From: python:3.10
 %post
     # Install dependencies
     # (pandas is recommended to support parsing dataset tags)
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install --no-cache-dir pandas
     # Install algorithm
     # temporary fix: pinned torch version <2.6 to avoid issues with weight loading.
     pip install --no-cache-dir "casanovo==5.0.0" "torch<2.6"
+
+    # Download model weights
+    cd /algo
+    curl -fLO https://github.com/Noble-Lab/casanovo/releases/download/v5.0.0/casanovo_v5_0_0.ckpt
+    echo "236fee3db839e670a4f6bede876cc55e89f191886a3613c2f607d1bcfd0b59a8  casanovo_v5_0_0.ckpt" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

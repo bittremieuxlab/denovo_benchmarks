@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 
 %environment
     export PATH=/opt/conda/bin:$PATH
@@ -19,9 +19,15 @@ From: continuumio/miniconda3:latest
 
     # Create conda environment
     cd /algo
+    git clone https://github.com/PHOENIXcenter/pi-PrimeNovo.git
+    git -C pi-PrimeNovo checkout 38b8393dd8b8de66bcd05c03808f31de32751ac8
+    git -C pi-PrimeNovo apply /algo/patches/pi-PrimeNovo.patch
+    # remove the compiled Python files committed upstream
+    find pi-PrimeNovo -name __pycache__ -type d -prune -exec rm -rf {} +
     # going inside pi-PrimeNovo dir
     cd pi-PrimeNovo
-    conda create -y -n PrimeNovo python=3.10
+    export PIP_CONSTRAINT=/algo/constraints.txt
+    conda create -y -n PrimeNovo python=3.10.22
     conda activate PrimeNovo
 
     # Install Python dependencies
@@ -31,27 +37,29 @@ From: continuumio/miniconda3:latest
     # Create constraints file to prevent numpy/pandas upgrades
     echo "numpy<2.0" > /tmp/constraints.txt
     echo "pandas==1.5.2" >> /tmp/constraints.txt
-    export PIP_CONSTRAINT=/tmp/constraints.txt
+    export PIP_CONSTRAINT="/algo/constraints.txt /tmp/constraints.txt"
 
     # Install gcc and g++ compilers
-    conda install -c conda-forge gcc=11 gxx=11 -y
+    conda install -c conda-forge gcc=11.4.0 gxx=11.4.0 -y
     
 
     # Clone and install ctcdecode
     git clone --recursive https://github.com/WayenVan/ctcdecode.git
     cd ctcdecode
+    git checkout 121bda68d33e4b19bee8668feadc4427a198facf && git submodule update --init --recursive
     pip install .
     cd ..
     rm -rf ctcdecode
 
     # Install CuPy (adapt CUDA version accordingly)
-    conda install -y -c nvidia cuda-toolkit=12.4.*
+    conda install -y -c nvidia cuda-toolkit=12.4.1
     pip install cupy-cuda12x
     # pip install cupy-cuda13x
 
-    pip install "gdown<6"
+    pip install gdown==5.2.2
 
     gdown --fuzzy "https://drive.google.com/file/d/12IZgeGP3ae3KksI5_82yuSTbk_M9sKNY/view?usp=sharing" -O PrimeNovo.ckpt
+    echo "6b3c46ce21537fd9154db66078844942ad26c5d186f19b5f917613045bd6f177  PrimeNovo.ckpt" | sha256sum -c -
     # Make prediction script executable (assuming you have a prediction script)
     chmod +x /algo/make_predictions.sh
 

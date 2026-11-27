@@ -2,7 +2,8 @@ Bootstrap: docker
 # Define the base image to inherit from.
 # (e.g. image with a particular python version
 # or a particular pytorch/tensorflow version).
-From: python:3.10
+# python:3.10 (Python 3.10.22, Debian 13)
+From: python@sha256:c10791e6f69086d5216f7b5d3b839929c454e24305867ed9bc5152f0355b5423
 
 # Define system variables to provide GPU access within the container.
 %environment
@@ -23,9 +24,11 @@ From: python:3.10
     # All files must be placed within /algo dir.
     cd /algo
     git clone https://github.com/Westlake-OmicsAI/adanovo_v1.git
+    git -C adanovo_v1 checkout 212fbd4df8ce652a437973af39b46ef7bbd726b9
     
     # [Optional] Install dependencies
     # (pandas is recommended to support parsing dataset tags)
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install --no-cache-dir pandas
     # install or build from source the algorithm, etc.
     cd adanovo_v1
@@ -34,6 +37,7 @@ From: python:3.10
     # Download model weights
     cd /algo
     curl -L -O https://github.com/Westlake-OmicsAI/adanovo_v1/releases/download/add_a_ckpt/ckpt_1.ckpt
+    echo "2e02254dd131bf44ac6517852d9825800a563d7b86739256a270a0d5c15e7936  ckpt_1.ckpt" | sha256sum -c -
     
 %post
 	# Make sure make_predictions.sh file is executable.

@@ -16,21 +16,24 @@ From: pytorch/pytorch:1.12.1-cuda11.3-cudnn8-runtime
     
     # Install dependencies
     # (pandas is recommended to support parsing dataset tags)
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install pandas numpy pyteomics SQLAlchemy lxml
     
     # Install algorithm
     cd /algo
     git clone https://github.com/gc-js/DePS4DenovoBenchmarks.git
+    git -C DePS4DenovoBenchmarks checkout 21dbab870be5a5ddbd7cfc923a4b23070e48abf8
     # Update source files with adjustments for denovo_benchmarks 
-    cp /algo/updated_source/* /algo/DePS4DenovoBenchmarks
+    git -C DePS4DenovoBenchmarks apply /algo/patches/DePS.patch
 
     # Download additional weights
     cd DePS4DenovoBenchmarks
     curl -L --connect-timeout 60 ftp://massive-ftp.ucsd.edu/v01/MSV000081382/peak/DeepNovo/HighResolution/knapsack.npy -o models/knapsack.npy \
-        || { pip install gdown \
+        || { pip install gdown==4.7.3 \
             && gdown "https://drive.google.com/uc?id=1um832lwCDpBptkeeCFhzWYuK4tgRwdm_" -O knapsack.npy.zip \
             && python -c "import zipfile; zipfile.ZipFile('knapsack.npy.zip').extractall('models')" \
             && rm knapsack.npy.zip; }
+    echo "603cca6b17a6b6bf0efae3b82a8d9f9a1b446d27f36ff4afdff40465ddd8eefc  models/knapsack.npy" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

@@ -2,3 +2,4 @@
   date: "2026-03-06" # date of container update
   repo_commit: "00e974a" # commit with container update
   notes: "Original implementation."
+  upstream_ref: "docker: rapidnovor/novor-docker@sha256:2fffc4b0fc7608b8151489e5e0bc145452e0d1fef07713851251c5d8eedfeec5"

@@ -2,3 +2,4 @@
   date: "2025-10-09" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
+  upstream_ref: "vendored: code added in 45ea9a7, upstream source not recorded"

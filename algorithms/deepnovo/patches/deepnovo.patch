@@ -1,0 +1,13 @@
+diff --git a/deepnovo_main_modules.py b/deepnovo_main_modules.py
+index a448f87..192501b 100644
+--- a/deepnovo_main_modules.py
++++ b/deepnovo_main_modules.py
+@@ -1542,7 +1542,7 @@ def decode_beam_search_01(sess,
+   active_search = []
+ 
+   # fill in the first entries of active_search
+-  for spectrum_id in xrange(decode_block_size):
++  for spectrum_id in xrange(min(decode_block_size, len(prefix_mass_list))):
+ 
+     active_search.append([])
+     active_search[-1].append(spectrum_id)

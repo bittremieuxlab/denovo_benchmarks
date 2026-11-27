@@ -2,4 +2,4 @@
   date: "2025-10-09" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation. n_beams=1, max_length=50."
-  upstream_ref: "git: https://github.com/BEAM-Labs/ContraNovo.git@503fdb3" # optional reference
+  upstream_ref: "git: https://github.com/BEAM-Labs/ContraNovo.git@503fdb3"

@@ -18,6 +18,10 @@ and [DeepNovo](https://github.com/bittremieuxlab/denovo_benchmarks/tree/main/alg
 
 - **`container.def`** — definition file of the [Apptainer](https://apptainer.org/docs/user/main/definition_files.html) 
 container image that creates environment and installs dependencies required for running the algorithm.
+Pin everything it fetches, so that a rebuild gives the same container: check out the commit given in `upstream_ref` after `git clone`, 
+keep changes to the upstream code as patch files in `patches/` and apply them after the checkout, 
+install Python packages with `PIP_CONSTRAINT` set to an exact package list (`constraints.txt`), give the base image by its digest, 
+and check each downloaded file against its SHA-256 (`echo "<sha256>  <file>" | sha256sum -c -`).
     
 - **`make_predictions.sh`** — bash script to run the *de novo* algorithm on the input dataset 
 (folder with MS spectra in .mgf files) and generate an output file with per-spectrum peptide predictions.  
@@ -75,10 +79,12 @@ from its original representation (**input format**) to the format expected by th
 
 - **`versions.log`** — list of container versions of the algorithm, newest first. 
 The benchmark always runs the newest `container_version`, and outputs and results are stored per version. 
-A template with the required fields (`container_version`, `date`, `repo_commit`, `notes`) can be found in `algorithms/base/versions_template.log`.
+A template with the required fields (`container_version`, `date`, `repo_commit`, `notes`, `upstream_ref`) can be found in `algorithms/base/versions_template.log`.
 
 To check that your container runs and produces predictions in the output format, use `run_test.sh` (see [Running the benchmark](#running-the-benchmark)).
 `./run_test.sh [-k] algorithm_name` runs the algorithm on `sample_data/9_species_human` and checks its output. 
+It first checks that the newest `versions.log` entry has an `upstream_ref` that matches what `container.def` fetches 
+(`check_versions_log.py`; run `python check_versions_log.py` to check all algorithms). 
 It prints the number of valid predictions (`Predictions: N rows, M predicted sequences, K valid.`) and warns about invalid ones 
 (sequence not in ProForma format, or number of `aa_scores` not matching the sequence tokens), which the evaluation counts as no prediction.
 
@@ -164,6 +170,15 @@ Only the evaluation container accesses the `labels.csv` file to evaluate algorit
 We provide two small sample datasets (`9_species_human`, `9_species_mus_musculus`) and their reference proteomes (`proteomes/`) 
 in the `sample_data/` directory for testing the benchmarking pipeline locally.
 
+The spectra of the 62 public benchmark datasets are on MassIVE as [MSV000103779](https://massive.ucsd.edu/ProteoSAFe/QueryMSV?id=MSV000103779) 
+(`peak/mgf/<dataset>/`). Their labels, reference proteomes and the algorithms' predictions are in the reanalysis 
+[RMSV000000721](https://massive.ucsd.edu/ProteoSAFe/QueryMSV?id=RMSV000000721): `metadata/labels/<dataset>/labels.csv`, 
+`sequence/proteomes/` and `metadata/<algorithm>/<version>/<dataset>/output.csv`.
+
+`download_proteomes.py` downloads the reference proteomes named in `dataset_tags.tsv` from RMSV000000721 into `PROTEOMES_DIR` 
+(`--datasets` limits it to some datasets). With `--uniprot <proteome ID> --organism <name>` it downloads the current version 
+of a UniProt proteome instead, named `<organism>_uniprotkb_proteome_<proteome ID>_<date>.fasta`.
+
 However, running the full benchmark, especially on larger spectra files, is **not recommended** on a local computer, as de novo prediction can be computationally intensive and time-consuming. Additionally, while some containerized tool versions support flexible switching between CPU and GPU devices, others strictly require GPU access and will fail to run if a compatible GPU is unavailable.
 
 
@@ -240,11 +255,12 @@ To run the benchmark locally:
     Outputs are stored as:
     ```
     outputs/<algorithm>/<version>/<dataset>/
-        output.csv   # predictions
-        time.log     # algorithm run time
+        output.csv             # predictions
+        time.log               # algorithm run time
+        prediction_info.yaml   # when, from which commit and with which container image the predictions were made
     ```
     Evaluation results are stored in `results/<dataset>/`. Only the rows of the evaluated algorithm version 
-    are added or replaced, results of other algorithms are kept.
+    are added or replaced, results of other algorithms are kept. The same holds for `results/provenance.csv` (see [Benchmark results](#benchmark-results)).
 
 5. **Run several datasets and algorithms**:
 
@@ -267,6 +283,32 @@ To run the benchmark locally:
 ## Benchmark results
 
 Evaluation results are stored in `results/<dataset>/` (one plot data file per metric, one row per algorithm version) and are shown in the dashboard.
+
+`results/provenance.csv` records what each of these results was computed with: one row per dataset, algorithm and version, written by `evaluate.py` together with the plot data. Its columns:
+- `upstream_ref`: from the algorithm's `versions.log`;
+- `predicted`, `prediction_commit`, `image_sha256`, `prediction_notes`: from `prediction_info.yaml`, that is when, from which commit of this repository and with which container image the predictions were made (`-dirty`: with uncommitted changes in the algorithm's folder);
+- `predictions_sha256`: the evaluated `output.csv`;
+- `evaluated`, `evaluation_commit`, `evaluation_packages`: when and with which code and package versions the evaluation ran (`-dirty`: with uncommitted changes in `evaluation/`);
+- `labels_sha256`, `proteome`, `intensity_model`, `rt_model`: the labels, the reference proteome of the proteome matches (empty if none) and the Koina models used for the dataset.
+
+For algorithms that are run by hand (PEAKS, GraphNovo), put the predictions in `outputs/<algorithm>/<version>/<dataset>/output.csv`, write `prediction_info.yaml` next to it yourself, and run `./run.sh /path/to/dataset/dir <algorithm>` to augment and evaluate them:
+```yaml
+predicted: "2026-03-01"           # date of the run
+notes: "PEAKS Studio 12.5, ..."   # software and version, settings, computer
+```
+
+These algorithms run with settings that differ from their authors' defaults:
+
+| Algorithm | Setting | Benchmark | Authors' default | Reason | Set in |
+|---|---|---|---|---|---|
+| RNovA | precursor tolerance | 10 ppm | 5 ppm | tuned for amino-acid AUC on the 9-species human sample | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | refinement iterations | 8 | 4 | same | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | precursor isotope shifts | −1, 0 | 0 only | same | `make_predictions.sh`, `patches/RNovA.patch` |
+| RNovA | score cutoff | predictions with a mean residue score below −2.0 are not reported | none | same | `patches/RNovA.patch` |
+| ContraNovo | beams | 1 (greedy decoding) | 5 | inference time | `patches/ContraNovo.patch` |
+| ContraNovo | maximum peptide length | 50 | 100 | inference time | `patches/ContraNovo.patch` |
+| pi-PrimeNovo | beams | 1 | 5 | not stated | `patches/pi-PrimeNovo.patch` |
+| InstaNovo | refinement with InstaNovo+ | off (`--no-refinement`) | on | run time | `make_predictions.sh` |
 
 ## Running Streamlit dashboard locally:
 To view the Streamlit dashboard for the benchmark locally, run:

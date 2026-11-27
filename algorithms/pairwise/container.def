@@ -15,12 +15,15 @@ From: continuumio/miniconda3:26.7.1-1
     # Download algorithm source code
     cd /algo
     git clone https://github.com/statisticalbiotechnology/pairwise.git
+    git -C pairwise checkout adad3537405320a8695a15f4a7c4128d43038af0
     cd pairwise
     # Replace SSH URLs with HTTPS in .gitmodules.
     sed -i 's/git@github.com:/https:\/\/github.com\//g' .gitmodules
     git submodule update --init --recursive
 
     # install conda environment
+    export PIP_CONSTRAINT=/algo/constraints.txt
+    sed -i 's/- python=3.10$/- python=3.10.22/' environment.yml
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment
@@ -34,11 +37,12 @@ From: continuumio/miniconda3:26.7.1-1
     cd depthcharge
     python -m pip install .
     
-    # replace create_lance.py with the fixed version for benchmarking
-    cp /algo/create_lance.py /algo/pairwise/src/data/create_lance.py
+    # benchmark changes to pairwise (create_lance.py: min_peaks=1)
+    git -C /algo/pairwise apply /algo/patches/pairwise.patch
 
     cd /algo
-    wget https://huggingface.co/alfred-n/PA-transformer/resolve/main/pairwise_mskb.ckpt
+    wget https://huggingface.co/alfred-n/PA-transformer/resolve/ee08cb3d4ee7bea7d5146b5dffba7737cdf7f353/pairwise_mskb.ckpt
+    echo "9be5ca860f97d1034a049c8d77575248382912401ca4ff5b1b9da3766cb4e02d  pairwise_mskb.ckpt" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

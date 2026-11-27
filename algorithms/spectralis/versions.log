@@ -2,4 +2,4 @@
   date: "2025-11-20" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation with Casanovo v4.3.0 as base algorithm."
-  upstream_ref: "git: https://github.com/gagneurlab/spectralis.git@bbb1d9d" # optional reference
+  upstream_ref: "git: https://github.com/gagneurlab/spectralis.git@bbb1d9d"

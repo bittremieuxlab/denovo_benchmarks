@@ -90,6 +90,8 @@ def get_n_tokens(sequence: str) -> int:
 
 
 def get_n_scores(scores: str) -> int:
+    if not isinstance(scores, str) or not scores:
+        return 0
     return len(scores.split(","))
 
 

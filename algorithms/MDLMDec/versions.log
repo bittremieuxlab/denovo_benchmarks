@@ -1,5 +1,5 @@
 - container_version: "bm-1.0.0"
   date: "2026-08-19" # date of container update
-  repo_commit: "6a18fa809e32e2b797ebd85a316d270e45fffc28" # commit with container update
+  repo_commit: "ff41ace" # commit with container update
   notes: "Original implementation."
-  upstream_ref: "git: https://github.com/jlapin1/denovo_base/tree/head" # optional reference
+  upstream_ref: "git: https://github.com/jlapin1/denovo_base.git@a4bb37a#branch=head"

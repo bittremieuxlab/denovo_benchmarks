@@ -129,7 +129,10 @@ else:
     print(f"Output data {output_path} already has pred_RT and SA columns. Skipping...")
 
 # 2) Check matches to the reference proteome
-if not ("proteome_match" in output_data.columns) or args.force:
+reference_proteome_path = mmseqs.get_reference_proteome(PROTEOMES_DIR, database_path, dataset_name)
+if reference_proteome_path is None:
+    output_data["proteome_match"] = np.nan
+elif not ("proteome_match" in output_data.columns) or output_data["proteome_match"].isna().all() or args.force:
     print("Checking matches to the reference proteome...")
 
     # Create directories for MMseqs2 proteome matches search
@@ -142,7 +145,6 @@ if not ("proteome_match" in output_data.columns) or args.force:
         search_tmp_dir, tmp_files_dir, target_db_dir, query_db_dir, search_result_dir, search_result_path
     ) = mmseqs.setup_mmseqs_dirs(search_tmp_dir=job_tmp_dir)
     # create a database from a reference proteome
-    reference_proteome_path = os.path.join(PROTEOMES_DIR, database_path)
     contam_path = os.path.join(PROTEOMES_DIR, "crap.fasta")
     target_fasta_path = os.path.join(search_tmp_dir, "proteome.fasta")
     mmseqs.create_target_fasta(reference_proteome_path, contam_path, target_fasta_path)

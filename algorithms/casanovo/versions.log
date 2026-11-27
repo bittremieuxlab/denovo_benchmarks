@@ -2,4 +2,4 @@
   date: "2025-09-03" # date of container update
   repo_commit: "5fa09b3" # commit with container update
   notes: "Official release 5.0.0."
-  upstream_ref: "pip: casanovo==5.0.0" # optional reference
+  upstream_ref: "pip: casanovo==5.0.0"

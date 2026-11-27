@@ -1,20 +1,24 @@
 Bootstrap: docker
-From: python:3.10
+# python:3.10 (Python 3.10.22, Debian 13)
+From: python@sha256:c10791e6f69086d5216f7b5d3b839929c454e24305867ed9bc5152f0355b5423
 
 %files
     # Copy algorithm-related files
     algorithms/base /algo/base
     algorithms/instanovo/make_predictions.sh /algo
     algorithms/instanovo/output_mapper.py /algo
+    algorithms/instanovo/constraints.txt /algo
     
 %post
     # Install algorithm. Pin exact version for reproducibility
     # temporary fix: pinned torch version <2.6 to avoid issues with weight loading.
+    export PIP_CONSTRAINT=/algo/constraints.txt
     pip install --no-cache-dir "instanovo==1.2.2" "torch<2.6"
 
     # Download additional weights
     cd /algo
     curl -LRO https://github.com/instadeepai/InstaNovo/releases/download/1.2.0/instanovo-v1.2.0.ckpt
+    echo "60fc0a964328be8dd07d53eca84ac0b41afedd73ecc3e04cbba2fd4c3b9da51a  instanovo-v1.2.0.ckpt" | sha256sum -c -
 
 %post
     # Make sure make_predictions.sh file is executable.

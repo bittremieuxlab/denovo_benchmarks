@@ -1,12 +1,19 @@
-"""Tests for the ProForma handling of predictions in evaluation/utils.py.
+"""Tests for the handling of predictions in evaluation/utils.py and algorithms/base/output_mapper.py.
 
 Run from the repository root with the evaluation dependencies (see evaluation.def) and pytest:
 
     python -m pytest tests/test_evaluation_utils.py
 """
 
+import os
+import sys
+
+import numpy as np
+import pandas as pd
 import pytest
 
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "algorithms"))
+from base import OutputMapperBase
 from evaluation import utils
 from evaluation.ground_truth_mapper import format_sequence
 from evaluation.metrics import aa_match_batch
@@ -65,3 +72,16 @@ def test_prediction_is_matched_against_its_label(prediction, label, n_residues, 
 def test_validate_sequence(sequence, valid):
     """Invalid sequences are counted as no prediction by evaluate.py."""
     assert utils.validate_sequence(sequence) == valid
+
+
+def test_prediction_without_aa_scores_is_not_counted():
+    """A prediction with an empty aa_scores cell is counted as no prediction (#95)."""
+    output_data = pd.DataFrame({"sequence": ["PEPTIDEK"], "aa_scores": [np.nan], "spectrum_id": ["run_0:0"]})
+    assert utils.get_sequenced_idx(output_data).tolist() == [False]
+
+
+def test_output_mapper_fills_missing_aa_scores():
+    """The output mapper gives a row without per-token scores the peptide score for each token."""
+    output_data = pd.DataFrame({"sequence": ["PEPK", "PEPM[UNIMOD:35]K"], "score": [0.9, 0.8], "aa_scores": [np.nan, "0.1,0.2,0.3,0.4,0.5"]})
+    output_data = OutputMapperBase().format_output(output_data)
+    assert output_data["aa_scores"].tolist() == ["0.9,0.9,0.9,0.9", "0.1,0.2,0.3,0.4,0.5"]

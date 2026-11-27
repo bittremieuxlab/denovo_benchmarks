@@ -2,4 +2,4 @@
   date: "2025-10-06" # date of container update
   repo_commit: "4a2b9c3" # commit with container update
   notes: "Original implementation."
-  upstream_ref: "git: https://github.com/yangshu729/biatNovo-DDA.git@887fd04" # optional reference
+  upstream_ref: "git: https://github.com/yangshu729/biatNovo-DDA.git@887fd04"

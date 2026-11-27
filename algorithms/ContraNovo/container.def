@@ -1,5 +1,5 @@
 Bootstrap: docker
-From: continuumio/miniconda3:latest
+From: continuumio/miniconda3:26.7.1-1
 # From: python:3.10
 
 %files
@@ -11,9 +11,13 @@ From: continuumio/miniconda3:latest
 %post
     # Download algorithm source code
     cd /algo
-    # git clone git@github.com:BEAM-Labs/ContraNovo.git
-    # git clone https://github.com/BEAM-Labs/ContraNovo.git
+    git clone https://github.com/BEAM-Labs/ContraNovo.git
+    git -C ContraNovo checkout 503fdb3bb7146b46aa3e205d1b70b70e2a4be7b8
+    git -C ContraNovo apply /algo/patches/ContraNovo.patch
+    # remove the compiled Python files committed upstream
+    find ContraNovo -name __pycache__ -type d -prune -exec rm -rf {} +
     cd ContraNovo
+    export PIP_CONSTRAINT=/algo/constraints.txt
     conda env create -f environment.yml
 
     # source the conda initialization script before activating an environment
@@ -22,8 +26,9 @@ From: continuumio/miniconda3:latest
     
     # Download algorithm weights from https://drive.google.com/file/d/1knNUqSwPf98j388Ds2E6bG8tAXx8voWR/view?pli=1
     conda activate ContraNovo
-    pip install gdown
+    pip install gdown==5.2.2
     gdown "https://drive.google.com/uc?id=1knNUqSwPf98j388Ds2E6bG8tAXx8voWR" -O ContraNovo.ckpt
+    echo "d3e7c1d7bcaffe26166bb49c96927f314e4bec1ed04f00d4a9d6f0207119854f  ContraNovo.ckpt" | sha256sum -c -
     # Move the checkpoint in the source dir
     mv ContraNovo.ckpt ContraNovo/
 

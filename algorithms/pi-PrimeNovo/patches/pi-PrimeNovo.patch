@@ -1,0 +1,170 @@
+diff --git a/PrimeNovo/config.yaml b/PrimeNovo/config.yaml
+index df9af41..2ebacf6 100644
+--- a/PrimeNovo/config.yaml
++++ b/PrimeNovo/config.yaml
+@@ -92,7 +92,7 @@ SWA: False # StochasticWeightAveraging
+ train_batch_size: 2800
+ predict_batch_size: 64
+ # n_beams: 5
+-n_beams: 5 # No beam search
++n_beams: 1 # No beam search
+ 
+ logger:
+ 
+diff --git a/PrimeNovo/denovo/mass_con.py b/PrimeNovo/denovo/mass_con.py
+index 6d48853..f5ce215 100644
+--- a/PrimeNovo/denovo/mass_con.py
++++ b/PrimeNovo/denovo/mass_con.py
+@@ -209,7 +209,7 @@ def knapDecode(prob, preMass, tol):
+     preMass = cp.float32(preMass)
+     grid_size = cp.float32(grid_size)
+     tol = cp.float32(tol)
+-    # print(preMass)
++    # print("preMass:", preMass) # precursor sequence mass
+     prob = torch.where(prob < -20.0, -20.0, prob)
+     #print(prob)
+     #print(prob.min())
+diff --git a/PrimeNovo/denovo/model.py b/PrimeNovo/denovo/model.py
+index fbfe07b..856966b 100644
+--- a/PrimeNovo/denovo/model.py
++++ b/PrimeNovo/denovo/model.py
+@@ -377,7 +377,10 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+                 #print("aminos: ", seq)
+                     # pred_mass = 0.0
+                     assert self.mass_control_tol > 0
+-                    if abs(mass_true - pred_mass) < self.mass_control_tol: #if beam decoded peptide already less than tol, it's optimal path then, no need to call PMC
++
++                    # if beam decoded peptide already less than tol, it's optimal path then, no need to call PMC
++                    # FIX: skip PMC when mass_true <= 0 (unknown true mass)
++                    if (mass_true <= 0) or abs(mass_true - pred_mass) < self.mass_control_tol: 
+                         top_tokens[i] = top_tokens_beam[i]
+                         # if beamscores[i] < 0.0:
+                         #     print(beamscores[i])
+@@ -388,10 +391,11 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+                         
+                         # print("beamscore:",beamscores[i])
+                         #print("skip CTC length control")
+-                        
++
++                    # PMC is only applied for peptides that don't match precursor mass!
+                     else:
+                         #ctc_customized_mass_control = CTCMassControl(self.decoder )
+-                        print("I am CUDA program")
++                        print("run PMC for: mass true =", mass_true, " mass pred =", pred_mass)
+                         temp = mass_con.knapDecode(logits, mass, self.mass_control_tol)
+                         # knapscores = torch.exp(_)
+                         # indTemp = torch.tensor(temp)
+@@ -762,51 +766,20 @@ class Spec2Pep(pl.LightningModule, ModelMixin):
+         aa_scores : torch.Tensor of shape (n_spectra, length, n_amino_acids)
+             The individual amino acid scores for each prediction.
+         """
+-  
+-        peptides , inferscores = self.forward(batch[0], batch[1], batch[2])
++        spectra,precursors,titles=batch[0],batch[1],batch[2]
++        peptides_pred , peptides_score = self.forward(batch[0], batch[1], batch[2])
+         import os
+         
+-        file_path = "./denovo.tsv"
+-        headers = "label\tprediction\tcharge\tscore\n"
+-
+-        # Check if the file exists and whether it contains headers
+-        if not os.path.exists(file_path) or open(file_path, 'r').readline().strip() != headers.strip():
+-            with open(file_path, 'a') as f:
+-                f.write(headers)
+-
+-        # Append data
+-        with open(file_path,'a') as f:
+-            for i in range(len(peptides)):
+-                sequence = ""
+-                for el in peptides[i]:
+-                    if len(el) > 1:
+-                        if sequence == "" and (el[0] == '-' or el[0] == '+') :
+-                            sequence += '[' + el + ']-'
+-                        else:
+-                            sequence += el[0] + '[' + el[1:] + ']'
+-                    else:
+-                        sequence += el
+-
+-                # print("label:",batch[2][i], ":" , peptides[i] , "\n")
+-                if batch[2][i].replace("$", "").replace("N+0.984", "D").replace("Q+0.984", "E").replace("L","I") == "".join(peptides[i]).replace("$", "").replace("N+0.984", "D").replace("Q+0.984", "E").replace("L","I"):
+-                    answer_is_correct = "correct"
+-                else:
+-                    answer_is_correct = "incorrect"
+-                #each line output this: label (title if label is none), predictions, charge, and confidence score
+-                f.write(batch[2][i].replace("\t", " ") + "\t" + sequence + "\t" + str(int(batch[1][i][1])) + "\t" + str(float(inferscores[i])) + "\n")
+-                
+-                #f.write("label: " + batch[2][i] + " prediction : " + "".join(peptides[i]) + "  " + answer_is_correct + "\n")
++        file_path = "denovo_outputs.tsv"
+         
+-        return batch[2], batch[1], peptides  #batch[2]: identifier
+-    
+-    def on_train_epoch_end(self) -> None:
+-        """
+-        Log the training loss at the end of each epoch.
+-        """
+-        train_loss = self.trainer.callback_metrics["train/CELoss"].detach()
+ 
+-        #self._history[-1]["train"] = train_loss
+-        #self._log_history()
++        # Append data
++        with open(file_path, 'a') as f:
++            if f.tell() == 0:  # Check if file is empty to write header
++                f.write(f'sequence\trounded_score\tscore\tspectrum_id\n')
++            for i in range(len(peptides_pred)):
++                # f.write(f'{peptides_pred[i]},{round(peptides_score[i],2)},{peptides_score[i]},{titles[i]}\n')
++                f.write(f'{peptides_pred[i]}\t{round(peptides_score[i].item(),2)}\t{peptides_score[i]}\t{titles[i]}\n')
+ 
+ 
+     def on_validation_epoch_end(self) -> None:
+diff --git a/PrimeNovo/denovo/parser2.py b/PrimeNovo/denovo/parser2.py
+index 62d87f3..1b997d8 100644
+--- a/PrimeNovo/denovo/parser2.py
++++ b/PrimeNovo/denovo/parser2.py
+@@ -271,14 +271,14 @@ class MgfParser(BaseParser):
+         else:
+             precursor_mz, precursor_charge = None, 0
+ 
+-        if self.annotationsLabel:
+-            self.annotations.append(spectrum["params"].get("seq"))
+-        else:
+-            # print(spectrum)
+-            # print((spectrum["params"]["title"]))
+-            self.annotations.append(spectrum["params"]["title"])
+-
+         if self.valid_charge is None or precursor_charge in self.valid_charge:
++            if self.annotationsLabel:
++                self.annotations.append(spectrum["params"].get("seq"))
++            else:
++                # print(spectrum)
++                # print((spectrum["params"]["title"]))
++                self.annotations.append(spectrum["params"]["title"])
++
+             self.mz_arrays.append(list(spectrum["m/z array"]))
+             self.intensity_arrays.append(list(spectrum["intensity array"]))
+             self.precursor_mz.append(precursor_mz)
+diff --git a/mirror b/mirror
+new file mode 100644
+index 0000000..cb30a97
+--- /dev/null
++++ b/mirror
+@@ -0,0 +1 @@
++https://mirrors.ustc.edu.cn/pypi/web/simple
+\ No newline at end of file
+diff --git a/requirements.txt b/requirements.txt
+index 6116b18..bfd5b4a 100644
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -120,6 +120,7 @@ scikit-learn==1.2.0
+ scipy==1.10.0
+ seaborn==0.12.2
+ semantic-version==2.10.0
++captum
+ sentry-sdk==1.12.1
+ setuptools==65.5.0
+ simplejson==3.18.1
+@@ -153,3 +154,4 @@ wurlitzer==3.0.3
+ yapf==0.32.0
+ yarl==1.8.2
+ lmdb
++ninja
+\ No newline at end of file
